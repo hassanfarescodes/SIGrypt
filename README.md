@@ -10,3 +10,4 @@ SIGrypt is an end-to-end encrypted LoRa-based communication software. Operates o
 - CPU with AES-NI
 - Reyax RYLR998 LoRa Module
   
+![Logo](images/LoRa_Freqs.png)
