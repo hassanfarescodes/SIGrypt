@@ -494,7 +494,7 @@ start_transmissions:
 
         call write_loop
 
-        ; Wait 50 ms
+        ; Wait 20 ms
 
         mov rax, SYS_nanosleep
         lea rdi, [time_sleep]

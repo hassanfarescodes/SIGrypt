@@ -47,7 +47,7 @@ section .rodata:
     reception_prompt            db 10, "Listening...", 10
     reception_prompt_len        equ $ - reception_prompt
     
-    time_sleep                  dq 0, 50000000                                  ; Time delay between each frequency change (50 ms)
+    time_sleep                  dq 0, 20000000                                  ; Time delay between each frequency change (20 ms)
 
     ; =======================================================================
     ;                           EDITABLE SECTION END
