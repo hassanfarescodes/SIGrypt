@@ -23,7 +23,7 @@ DEFAULT REL
 
 %include "../include/frequency_variations.inc"
 
-;   Data Block Memory Layout (3584 bytes): 
+;   Data Block Memory Layout (3696 bytes): 
 ;
 ;   Name            Base    Start   End     Size
 ;   ============================================
@@ -31,19 +31,19 @@ DEFAULT REL
 ;   decrypted       r12     1024    2047    1024
 ;   plaintext       r12     2048    3071    1024
 ;   roundkeys       r12     3072    3311    240
-;   HMAC_hex        r12     3312    3375    64
-;   HMAC            r12     3376    3407    32
-;   HMAC_key        r12     3408    3439    32
-;   AES_key         r12     3440    3471    32
-;   IV_hex          r12     3472    3503    32
-;   CRC_tag_hex     r12     3504    3519    16
-;   IV              r12     3520    3535    16
-;   IV_copy         r12     3536    3551    16
-;   key_schedule    r12     3552    3567    16
-;   plaintext_len   r12     3568    3575    8
-;   CRC_tag         r12     3576    3584    8
+;   HMAC_hex        r12     3312    3439    128
+;   HMAC            r12     3440    3487    48
+;   HMAC_key        r12     3488    3535    48
+;   AES_key         r12     3536    3583    48
+;   IV_hex          r12     3584    3615    32
+;   CRC_tag_hex     r12     3616    3631    16
+;   IV              r12     3632    3647    16
+;   IV_copy         r12     3648    3663    16
+;   key_schedule    r12     3664    3679    16
+;   plaintext_len   r12     3680    3687    8
+;   CRC_tag         r12     3688    3695    8
 ;
-;   CONSTANT: block_size = 4096
+;   CONSTANT: block_size = 4096  (2 pages worth)
 
 section .rodata
 
@@ -99,7 +99,8 @@ section .rodata
 
     IV_len          equ 16
 
-    HMAC_len        equ 32
+    AES_len         equ 48
+    HMAC_len        equ 48
 
 
 section .data
@@ -164,8 +165,8 @@ section .text
 
     extern ENCRYPT_AES
     extern zero_fill
-    extern hmac_sha256
-    extern sha256
+    extern hmac_sha384
+    extern sha384
     extern sys_strlen
     extern detect_entries
     extern SIGrypt_CRC_ECMA182
@@ -184,20 +185,23 @@ SIGrypt_wipe_sensitive:
 
     lea rdi, [plaintext]
     mov rsi, 1024
+
     call zero_fill
 
     test rax, rax
     cmovne rbx, [error_val]
 
     lea rdi, [HMAC_key]
-    mov rsi, 32
+    mov rsi, HMAC_len
+
     call zero_fill
 
     test rax, rax
     cmovne rbx, [error_val]
 
     lea rdi, [AES_key]
-    mov rsi, 32
+    mov rsi, AES_len
+
     call zero_fill
 
     test rax, rax
@@ -205,6 +209,7 @@ SIGrypt_wipe_sensitive:
 
     lea rdi, [roundkeys]
     mov rsi, 240
+
     call zero_fill
     
     test rax, rax
@@ -212,6 +217,7 @@ SIGrypt_wipe_sensitive:
 
     lea rdi, [key_schedule]
     mov rsi, 16
+
     call zero_fill
 
     test rax, rax
@@ -393,6 +399,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [ciphertext_hex]
     mov rsi, 3072
+
     call zero_fill
 
     test rax, rax
@@ -400,6 +407,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [master_AES_key]
     mov rsi, 256
+
     call zero_fill
 
     test rax, rax
@@ -407,6 +415,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [master_HMAC_key]
     mov rsi, 256
+
     call zero_fill
 
     test rax, rax
@@ -414,6 +423,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [IV_cache]
     mov rsi, 64
+
     call zero_fill
 
     test rax, rax
@@ -421,6 +431,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [time_buffer]
     mov rsi, 16
+
     call zero_fill
 
     test rax, rax
@@ -428,6 +439,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [time_buffer_len]
     mov rsi, 8
+
     call zero_fill
 
     test rax, rax
@@ -435,6 +447,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [frequency_ptr]
     mov rsi, 8
+
     call zero_fill
 
     test rax, rax
@@ -442,6 +455,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [Freq_num]
     mov rsi, 8
+
     call zero_fill
 
     test rax, rax
@@ -449,6 +463,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [master_key]
     mov rsi, 256
+
     call zero_fill
     
     test rax, rax
@@ -456,6 +471,7 @@ SIGrypt_wipe_buffers:
 
     lea rdi, [master_key_len]
     mov rsi, 8
+
     call zero_fill
     
     test rax, rax
@@ -1076,6 +1092,7 @@ SIGrypt_load_key_file:
             mov byte [r10], 0
 
             lea rdi, [initial_key]
+
             call sys_strlen
 
             mov r8, rax
@@ -1422,7 +1439,7 @@ transmission_phase:
     add rsi, label_len
     lea rdx, [AES_key]
 
-    call sha256
+    call sha384
 
     test rax, rax
     jnz failed_post_mmap_A
@@ -1444,7 +1461,7 @@ transmission_phase:
     add rsi, label_len
     lea rdx, [HMAC_key]
 
-    call sha256
+    call sha384
 
     test rax, rax
     jnz failed_post_mmap_A
@@ -1459,6 +1476,9 @@ transmission_phase:
     jnz failed_post_mmap_A
 
     lea rdi, [r12]  
+  
+    ; Note: AES_key is 48 bytes, but ENCRYPT_AES
+    ; will use the first 32 bytes of that key
 
     call ENCRYPT_AES
 
@@ -1529,7 +1549,7 @@ transmission_phase:
     mov rcx, HMAC_len
     lea r8, [HMAC]
 
-    call hmac_sha256
+    call hmac_sha384
 
     lea rdi, [HMAC]
     mov rsi, HMAC_len

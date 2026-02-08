@@ -19,7 +19,7 @@ OBJS := \
   $(BUILD_DIR)/main.o \
   $(BUILD_DIR)/AES256.o \
   $(BUILD_DIR)/CRC.o \
-  $(BUILD_DIR)/SHA256.o \
+  $(BUILD_DIR)/SHA384.o \
   $(BUILD_DIR)/transmit.o \
   $(BUILD_DIR)/receive.o
 
@@ -59,7 +59,7 @@ $(BUILD_DIR)/detect_entries.o: $(SRC_DIR)/detect_entries.asm | $(BUILD_DIR)
 $(BUILD_DIR)/essentials.o: include/essentials.asm | $(BUILD_DIR)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 
-$(BUILD_DIR)/SHA256.o: $(SRC_DIR)/SHA256.c | $(BUILD_DIR)
+$(BUILD_DIR)/SHA384.o: $(SRC_DIR)/SHA384.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $<
 
 clean:

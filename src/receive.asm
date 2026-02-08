@@ -21,9 +21,9 @@ DEFAULT REL
 ; --------------------------------------------------------------------------------
 ; AES Encrypted Ciphtertext || IV || - || time seconds || HMAC tag || CRC checksum
 ; --------------------------------------------------------------------------------
-; Size:      2048              32    2         16            64           16
+; Size:      2048              32    2         16            96           16
 ;
-; Total max size: 2178 bytes 
+; Total max size: 2210 bytes 
 ; ================================================================================
 
 
@@ -36,10 +36,13 @@ section .rodata:
     received_stuff_len          equ $ - received_stuff
     received_stuff2             db "somethin"
 
+    reception_response_len      equ 256
+    reception_guard             equ reception_response_len - 32
+
 section .bss
 
-    reception_buffer            resb 2250       ; 45 bytes * 50 frequencies
-    reception_response          resb 128        ; +RCV=<Address>,<Length>,<Data>,<RSSI>,<SNR>\r\n
+    reception_buffer            resb 2250                       ; 45 bytes * 50 frequencies
+    reception_response          resb reception_response_len     ; +RCV=<Address>,<Length>,<Data>,<RSSI>,<SNR>\r\n
 
 section .text
     
@@ -74,7 +77,6 @@ listen_LoRa:
 
     mov r12, rdi
     mov r13, rsi
-    xor rbx, rbx
     xor rbp, rbp
 
     lea rdi, [reception_prompt]
@@ -82,21 +84,28 @@ listen_LoRa:
     
     call SIGout
 
-    loop_LoRa:
+    reset_offset:
+    
+        xor rbx, rbx
 
-        ; possibles: wrong frequency
-        ;            incorrect AT+ADDR
+    loop_LoRa:
 
         mov rax, SYS_read
         mov rdi, r12
         lea rsi, [reception_response + rbx]
-        mov rdx, 64
+        mov rdx, 32
         syscall
 
         test rax, rax
         js listening_failed
+        jz loop_LoRa
         
         add rbx, rax
+
+        ; Protects against overflows
+
+        cmp rbx, reception_guard
+        jge reset_offset
 
         cmp byte [reception_response + rbx - 1], 10
         jne loop_LoRa
