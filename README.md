@@ -10,7 +10,7 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 
 ## Requirements
 
-- x86-64 System
+- x86-64 Linux System
 - CPU with AES-NI
 - Reyax RYLR998 LoRa Module
 - USB to TTL Serial Converter
