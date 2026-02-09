@@ -2,7 +2,7 @@
 
 SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operates on quantum resistant cryptography such as AES-256, SHA-384, and HMAC-SHA384. Designed to be a PSK model and P2P.
 
-## This software uses 0 libraries!
+## * This software uses zero libraries! *
 
 ---
 🇺🇸 **CONFIGURED FOR USE IN THE UNITED STATES** 🇺🇸
