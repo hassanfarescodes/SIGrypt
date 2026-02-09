@@ -17,3 +17,13 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
   
 ---
 ![Logo](images/LoRa_Freqs.webp)
+
+
+## Regulatory / legality (US-only configuration)
+
+This project is **configured for the US 902–928 MHz ISM band**.
+It is **not intended for use in other countries/regions**.
+
+**You are responsible for legal operation and compliance** with FCC rules (frequency use, transmit power, antenna, hopping/dwell time, duty cycle, and any required labeling/testing for your finished device).  
+**FCC-certified modules do not automatically make your full build/product compliant.**
+This software is provided **as-is** with no warranty of regulatory compliance.
