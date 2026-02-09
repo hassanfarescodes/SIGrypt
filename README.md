@@ -8,8 +8,6 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 🇺🇸 **CONFIGURED FOR USE IN THE UNITED STATES** 🇺🇸
 ---
 
----
-
 ## Requirements
 
 - x86-64 System
