@@ -39,9 +39,11 @@ section .rodata:
     reception_response_len      equ 256
     reception_guard             equ reception_response_len - 32
 
+    reception_buffer_len        equ 2250
+
 section .bss
 
-    reception_buffer            resb 2250                       ; 45 bytes * 50 frequencies
+    reception_buffer            resb reception_buffer_len       ; 45 bytes * 50 frequencies
     reception_response          resb reception_response_len     ; +RCV=<Address>,<Length>,<Data>,<RSSI>,<SNR>\r\n
 
 section .text
@@ -52,7 +54,55 @@ section .text
     extern append_CRLF
     extern termios_config
     extern config_module
+    extern SIGrypt_CRC_Validate
     global SIGrypt_receive
+
+
+strip_padding:
+
+    ; Purpose:
+    ;       Removes trailing 'P's in-place
+    ;       for a buffer
+    ;
+    ; Args:
+    ;       rdi -> buffer to strip
+    ;       rsi -> size of buffer
+    ;   
+    ; Returns:
+    ;       rax -> 0 on success
+    ;       rax -> -1 on failure
+
+    push r12
+
+    lea rdx, [rdi + rsi - 1]
+
+    strip_padding_loop:
+
+        mov al, byte [rdx]
+
+        cmp al, 'P'
+        jne strip_padding_success
+
+        mov byte [rdx], 0
+
+        dec rdx
+        
+        cmp rdx, rdi
+        jg strip_padding_loop
+        
+    strip_padding_failed:
+
+        mov rax, -1
+    
+        pop r12
+        ret
+
+    strip_padding_success:
+
+        xor rax, rax
+
+        pop r12
+        ret
 
 
 listen_LoRa:
@@ -73,10 +123,12 @@ listen_LoRa:
     push rbp
     push r12
     push r13
-    push r14
-
+    ; r14 not touched, it contains module_FD
+    push r15
+    
     mov r12, rdi
     mov r13, rsi
+    lea r15, [reception_buffer]
     xor rbp, rbp
 
     lea rdi, [reception_prompt]
@@ -102,7 +154,7 @@ listen_LoRa:
         
         add rbx, rax
 
-        ; Protects against overflows
+        ; Protects against buffer overflows
 
         cmp rbx, reception_guard
         jge reset_offset
@@ -120,9 +172,35 @@ listen_LoRa:
         cmp dword [reception_response], 0X5643522B                  ; == "+RCV" ?
         jne loop_LoRa
 
-        ;lea rdi, [received_stuff]
-        ;mov rsi, received_stuff_len
-        ;call SIGout
+
+        lea rsi, [reception_response]
+        lea rdi, [reception_response+reception_response_len]
+        xor rcx, rcx
+
+        find_data:
+
+            ; Finds the received data, located 2 commas after +RCV
+
+            mov al, byte [rsi]
+            cmp al, ','
+            sete dl
+            
+            movzx edx, dl
+            add rcx, rdx
+
+            inc rsi
+            cmp rsi, rdi
+            jge listening_failed
+
+            cmp rcx, 2
+            jne find_data
+
+
+        lea rdi, [r15]
+        mov rcx, 45
+        rep movsb
+
+        add r15, 45
 
         mov rdi, 10
         mov rsi, 1
@@ -130,11 +208,6 @@ listen_LoRa:
         call SIGout
 
         xor rbx, rbx
-
-        ;lea rdi, [received_stuff2]
-        ;mov rsi, received_stuff_len
-
-        ;call SIGout
 
         mov edi, dword [r13 + rbp * 4 + 4]
         lea rsi, [frequency_buffer + cmd_Band_len]
@@ -157,15 +230,20 @@ listen_LoRa:
         lea rdi, [frequency_buffer]
         mov rsi, [frequency_buffer_len]
 
-        call write_loop
+        write_no_read:
 
-        test rax, rax
-        jnz listening_failed
+            mov rax, SYS_write
+            mov rdi, r14
+            lea rsi, [frequency_buffer+rbx]
+            mov rdx, [frequency_buffer_len]
+            sub rdx, rbx
+            syscall
 
-        ;lea rdi, [frequency_buffer]
-        ;mov rsi, [frequency_buffer_len]
+            add rbx, rax
+            cmp rbx, [frequency_buffer_len]
+            jne write_no_read
 
-        ;call SIGout
+        xor rbx, rbx
 
         inc rbp
         cmp rbp, FREQ_COUNT
@@ -179,7 +257,7 @@ listen_LoRa:
 
     listening_done:
 
-        pop r14
+        pop r15
         pop r13
         pop r12
         pop rbp
@@ -241,6 +319,15 @@ SIGrypt_receive:
 
     test rax, rax
     jnz reception_failed
+
+    lea rdi, [reception_buffer]
+    mov rsi, reception_buffer_len
+
+    call strip_padding
+
+    lea rdi, [reception_buffer]
+    mov rsi, reception_buffer_len
+    call SIGout
 
     jmp reception_success
 

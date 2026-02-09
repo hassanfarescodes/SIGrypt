@@ -46,6 +46,12 @@ section .rodata:
 
     reception_prompt            db 10, "Listening...", 10
     reception_prompt_len        equ $ - reception_prompt
+
+    reception_complete_CRC      db 10, "Received message, validating CRC..."
+    reception_complete_CRC_len  equ $ - reception_complete_CRC
+
+    reception_complete_HMAC     db 10, "Validating HMAC..."
+    reception_complete_HMAC_len equ $ - reception_complete_HMAC
     
     time_sleep                  dq 0, 20000000                                  ; Time delay between each frequency change (20 ms)
 

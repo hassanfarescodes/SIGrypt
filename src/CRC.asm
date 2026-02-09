@@ -15,6 +15,39 @@ DEFAULT REL
 
 section .text
     global SIGrypt_CRC_ECMA182
+    global SIGrypt_CRC_Validate
+
+SIGrypt_CRC_Validate:
+    
+    ; Purpose:
+    ;       Computes CRC-64 ECMA182 Checksum
+    ;       and checks it against another checksum
+    ;       Expects r12 to be address of data block
+    ;
+    ; Args:
+    ;       rdi -> address of buffer
+    ;       rsi -> size of buffer
+    ;       rdx -> address of checksum
+    ;
+    ; Returns:
+    ;       rax -> 0 on true
+    ;       rax -> 1 on false
+
+    push rbx
+
+    call SIGrypt_CRC_ECMA182
+
+    mov rax, [CRC_tag]
+    cmp rax, [rdx]
+
+    sete al
+
+    xor rax, 1
+
+    pop rbx
+    ret
+      
+    
 
 SIGrypt_CRC_ECMA182:
 
@@ -24,6 +57,7 @@ SIGrypt_CRC_ECMA182:
     ; Args:
     ;       rdi -> address of buffer
     ;       rsi -> size of buffer
+    ;       Expects r12 to be address of data block
     ;
     ; Returns:
     ;       rax -> 0 on success
