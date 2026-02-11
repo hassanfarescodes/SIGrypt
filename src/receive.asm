@@ -30,7 +30,7 @@ DEFAULT REL
 extern frequency_buffer
 extern frequency_buffer_len
 
-section .rodata:
+section .rodata
 
     received_stuff              db "Received"
     received_stuff_len          equ $ - received_stuff
@@ -42,21 +42,94 @@ section .rodata:
     reception_buffer_len        equ 2250
 
 section .bss
-
     reception_buffer            resb reception_buffer_len       ; 45 bytes * 50 frequencies
     reception_response          resb reception_response_len     ; +RCV=<Address>,<Length>,<Data>,<RSSI>,<SNR>\r\n
+    data_length                 resq 1
 
 section .text
     
     extern int_to_ascii
-    extern write_loop                       
+    extern write_loop                   
     extern SIGout
     extern append_CRLF
     extern termios_config
     extern config_module
     extern SIGrypt_CRC_Validate
+    extern destroy_block
     global SIGrypt_receive
 
+
+is_SIGrypt_format:
+
+    ; Purpose:
+    ;       checks to see if buffer is
+    ;       in SIGrypt-valid format
+    ;
+    ; Args:
+    ;       rdi -> buffer to check
+    ;       rsi -> size of buffer
+    ;   
+    ; Returns:
+    ;       rax ->  0 on success
+    ;       rax -> -1 on failure
+
+    push rbx
+    push r12
+    push r13
+
+    test rsi, rsi
+    jz check_hex_success
+
+    mov r12, rdi
+    lea r13, [rdi + rsi - 1]
+
+    check_hex_format:
+
+        mov al, byte [r13]
+
+        cmp al, '-'
+        je post_hex_check
+
+        cmp al, '0'
+        jb check_hex_failed
+
+        cmp al, ':'
+        jb post_hex_check
+
+        cmp al, 'A'
+        jb check_hex_failed
+
+        cmp al, 'F'
+        ja check_hex_failed
+
+        post_hex_check:
+
+            cmp r12, r13
+            je check_hex_success
+
+            dec r13
+
+            jmp check_hex_format
+            
+
+    check_hex_failed:
+
+        mov rax, -1
+        jmp check_hex_terminate
+        
+        
+    check_hex_success:
+        
+        xor rax, rax
+
+    check_hex_terminate:
+        
+        pop r13
+        pop r12
+        pop rbx
+
+        ret
+    
 
 strip_padding:
 
@@ -69,7 +142,7 @@ strip_padding:
     ;       rsi -> size of buffer
     ;   
     ; Returns:
-    ;       rax -> 0 on success
+    ;       rax -> length on success
     ;       rax -> -1 on failure
 
     push r12
@@ -93,13 +166,16 @@ strip_padding:
     strip_padding_failed:
 
         mov rax, -1
+        jmp strip_padding_terminate
     
-        pop r12
-        ret
-
     strip_padding_success:
 
-        xor rax, rax
+        sub rdx, rdi
+        inc rdx
+
+        mov rax, rdx
+  
+    strip_padding_terminate:
 
         pop r12
         ret
@@ -276,8 +352,15 @@ SIGrypt_receive:
     ;       rsi -> frequency table address
     ;   
     ; Returns:
-    ;       rax -> 0 on success
-    ;       rax -> -1 on failure
+    ;       rax ->  0 on success
+    ;   
+    ;       rax ->  6 on block destruction failure
+    ;       rax ->  5 on strip-padding failure
+    ;       rax ->  4 on config failure
+    ;       rax ->  3 on write failure
+    ;       rax ->  2 on non SIGrypt format
+    ;       rax ->  1 on data block alloc failure
+    ;       rax -> -1 on reception failure
 
     push rbx
     push rbp
@@ -285,24 +368,21 @@ SIGrypt_receive:
     push r13
     push r14
 
-    mov r12, rdi
     mov r13, rsi
-
-    mov r14, r12                                    ; write_loop expects module_FD in r14
-
+    mov r14, rdi                        ; write_loop expects module_FD in r14
 
     call termios_config
 
     test rax, rax
-    js reception_failed
+    js rec_config_failed
 
     mov rdi, r13
-    mov rsi, r12
+    mov rsi, r14
 
     call config_module
 
     test rax, rax
-    js reception_failed
+    js rec_config_failed
 
     lea rdi, [cmd_Address_R]
     mov rsi, cmd_Address_R_len
@@ -310,49 +390,109 @@ SIGrypt_receive:
     call write_loop
 
     test rax, rax
-    jnz reception_failed
+    jnz rec_write_failed
 
-    mov rdi, r12
+    mov rdi, r14
     mov rsi, r13
 
     call listen_LoRa
 
     test rax, rax
     jnz reception_failed
+    
+    lea rdi, [reception_buffer]
+    mov rsi, reception_buffer_len
+
+    call strip_padding    
+
+    test rax, rax
+    js rec_strip_failed
+
+    mov qword [data_length], rax
 
     lea rdi, [reception_buffer]
     mov rsi, reception_buffer_len
 
-    call strip_padding
-
-    lea rdi, [reception_buffer]
-    mov rsi, reception_buffer_len
     call SIGout
+
+    lea rdi, [reception_buffer]
+    mov rsi, [data_length]
+
+    call is_SIGrypt_format
+
+    test rax, rax
+    js SIGrypt_format_invalid
+
+    mov rax, SYS_mmap
+    mov rdi, 0
+    mov rsi, block_size
+    mov rdx, 1 | 2
+    mov r10, 2 | 0x20
+    mov r8, -1
+    mov r9,  0
+    syscall
+
+    test rax, rax
+    js rec_data_block_alloc_failed
+
+    mov r12, rax
+
+    lea rdi, [rax]
+    mov rsi, block_size
+
+    call destroy_block
+
+    jnz rec_destruction_failure
 
     jmp reception_success
 
     ; if recv has at 45 bytes, jump to the next frequency
+
+rec_destruction_failure:
+
+    mov rax, 6
+    jmp terminate_reception
+
+rec_strip_failed:
+
+    mov rax, 5
+    jmp terminate_reception
+
+rec_config_failed:
+
+    mov rax, 4
+    jmp terminate_reception
+
+rec_write_failed:
     
+    mov rax, 3
+    jmp terminate_reception
+
+SIGrypt_format_invalid:
+
+    mov rax, 2
+    jmp terminate_reception
+
+rec_data_block_alloc_failed:
+
+    mov rax, 1
+    jmp terminate_reception
 
 reception_failed:
 
-    pop r14
-    pop r13
-    pop r12
-    pop rbp
-    pop rbx
-    
     mov rax, -1
-    ret
-
+    jmp terminate_reception
 
 reception_success:
-    
+   
+    xor rax, rax
+
+terminate_reception:
+
     pop r14
     pop r13
     pop r12
     pop rbp
     pop rbx
 
-    xor rax, rax
     ret

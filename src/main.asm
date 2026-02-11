@@ -172,6 +172,7 @@ section .text
     extern SIGrypt_CRC_ECMA182
     extern SIGrypt_receive
     extern SIGrypt_transmit
+    global destroy_block
     global int_to_ascii
     global SIGout
     global _start
@@ -1342,7 +1343,7 @@ reception_phase:
     call SIGrypt_receive
     
     test rax, rax
-    jnz failed_post_mmap_A
+    jnz failed
 
     jmp terminate
    
@@ -1706,8 +1707,8 @@ failed:
     pop r12
     pop rbp
 
+    mov rdi, rax
     mov rax, SYS_exit
-    mov rdi, 1
     syscall
 
 no_such_module:
