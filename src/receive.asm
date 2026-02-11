@@ -44,6 +44,8 @@ section .rodata
 section .bss
     reception_buffer            resb reception_buffer_len       ; 45 bytes * 50 frequencies
     reception_response          resb reception_response_len     ; +RCV=<Address>,<Length>,<Data>,<RSSI>,<SNR>\r\n
+    rec_CRC_tag                 resb CRC_len
+    rec_CRC_tag_hex             resb CRC_len * 2
     data_length                 resq 1
 
 section .text
@@ -56,6 +58,7 @@ section .text
     extern config_module
     extern SIGrypt_CRC_Validate
     extern destroy_block
+    extern hex_to_bytes
     global SIGrypt_receive
 
 
@@ -361,6 +364,9 @@ SIGrypt_receive:
     ;       rax -> 5 on non SIGrypt format
     ;       rax -> 6 on data block alloc failure
     ;       rax -> 7 on reception failure
+    ;       rax -> 8 on malock failure
+    ;       rax -> 9 on hex_to_bytes failure
+    ;       rax -> 10 on CRC validation failure
 
     push rbx
     push rbp
@@ -437,16 +443,70 @@ SIGrypt_receive:
 
     mov r12, rax
 
-    lea rdi, [rax]
+    mov rax, SYS_mlock
+    lea rdi, [r12]
+    mov rsi, block_size
+    syscall
+
+    js rec_mlock_failed
+
+    mov rax, [data_length]
+    sub rax, CRC_len * 2                    ; rax now is length at CRC tag
+    lea rsi, [reception_buffer]
+    add rsi, rax
+    lea rdi, [rec_CRC_tag_hex]
+    mov rcx, CRC_len * 2
+    rep movsb
+
+    lea rdi, [rec_CRC_tag_hex]
+    mov rsi, CRC_len * 2
+    lea rdx, [rec_CRC_tag]
+    
+    call hex_to_bytes
+
+    test rax, rax
+    js rec_hex2bytes_failed
+
+    lea rdi, [reception_buffer]
+    mov rsi, [data_length]
+    sub rsi, CRC_len * 2
+    lea rdx, [rec_CRC_tag]
+
+    ; in CRC errors, negative address for rax, and possible off by one for rec_CRC_tag
+
+    call SIGrypt_CRC_Validate
+
+    jnz rec_CRC_validation_failed
+  
+rec_destroy_A:
+
+    mov rax, SYS_munlock
+    lea rdi, [r12]
+    mov rsi, block_size
+    syscall 
+
+    lea rdi, [r12]
     mov rsi, block_size
 
     call destroy_block
 
     jnz rec_destruction_failure
 
-    jmp reception_success
-
     ; if recv has at 45 bytes, jump to the next frequency
+
+reception_success:
+   
+    xor rax, rax
+
+terminate_reception:
+
+    pop r14
+    pop r13
+    pop r12
+    pop rbp
+    pop rbx
+
+    ret
 
 rec_destruction_failure:
 
@@ -483,16 +543,17 @@ reception_failed:
     mov rax, 7
     jmp terminate_reception
 
-reception_success:
-   
-    xor rax, rax
+rec_mlock_failed:
 
-terminate_reception:
+    mov rax, 8
+    jmp terminate_reception
 
-    pop r14
-    pop r13
-    pop r12
-    pop rbp
-    pop rbx
+rec_hex2bytes_failed:
+    
+    mov rax, 9
+    jmp terminate_reception
 
-    ret
+rec_CRC_validation_failed:
+
+    mov rax, 10
+    jmp terminate_reception

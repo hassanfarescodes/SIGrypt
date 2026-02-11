@@ -17,6 +17,7 @@ LIB       := $(BUILD_DIR)/libmylib.a
 
 OBJS := \
   $(BUILD_DIR)/main.o \
+  $(BUILD_DIR)/flow.o \
   $(BUILD_DIR)/AES256.o \
   $(BUILD_DIR)/CRC.o \
   $(BUILD_DIR)/SHA384.o \
@@ -38,7 +39,11 @@ $(LIB): $(LIBOBJS) | $(BUILD_DIR)
 $(TARGET): $(OBJS) $(LIB) | $(BUILD_DIR)
 	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIB)
 
+# ---- ASM objects ----
 $(BUILD_DIR)/main.o: $(SRC_DIR)/main.asm | $(BUILD_DIR)
+	$(NASM) $(NASMFLAGS) -o $@ $<
+
+$(BUILD_DIR)/flow.o: $(SRC_DIR)/flow.asm | $(BUILD_DIR)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 
 $(BUILD_DIR)/AES256.o: $(SRC_DIR)/AES256.asm | $(BUILD_DIR)
@@ -59,6 +64,7 @@ $(BUILD_DIR)/detect_entries.o: $(SRC_DIR)/detect_entries.asm | $(BUILD_DIR)
 $(BUILD_DIR)/essentials.o: include/essentials.asm | $(BUILD_DIR)
 	$(NASM) $(NASMFLAGS) -o $@ $<
 
+# ---- C objects ----
 $(BUILD_DIR)/SHA384.o: $(SRC_DIR)/SHA384.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -o $@ $<
 

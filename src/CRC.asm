@@ -35,10 +35,14 @@ SIGrypt_CRC_Validate:
 
     push rbx
 
+    lea rbx, [rdx]
+
     call SIGrypt_CRC_ECMA182
 
-    mov rax, [CRC_tag]
-    cmp rax, [rdx]
+    mov rcx, [CRC_tag]
+    mov rdx, [rbx]
+
+    cmp rcx, rdx
 
     sete al
 

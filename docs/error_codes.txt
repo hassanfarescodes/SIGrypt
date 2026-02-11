@@ -10,6 +10,8 @@
         5                   SIGrypt format              *
         6                   data block alloc            *
         7                   general reception           *
+        8                   mlock                       *
+        9                   hex_to_bytes                *
 
         20                  post_mmap_B                 flow.asm
         21                  post_mmap_A                 *

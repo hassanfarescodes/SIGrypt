@@ -64,4 +64,9 @@ section .rodata:
 
     padding                     db "P"
 
+    CRC_len                     equ 8
+    IV_len                      equ 16
+    AES_len                     equ 48
+    HMAC_len                    equ 48
+
 %endif
