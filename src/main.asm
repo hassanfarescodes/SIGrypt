@@ -1198,7 +1198,37 @@ randomize:
         ret
 
 _start:
-    
+
+    ; Purpose:
+    ;       Fills a buffer with securely random bytes
+    ;
+    ; Args:
+    ;       rdi -> Address of buffer
+    ;       rsi ->    Size of buffer
+    ;
+    ; Returns:
+    ;       rax -> 0 on success
+    ;
+    ;       rax -> 20 on post_mmap_B
+    ;       rax -> 21 on post_mmap_A
+    ;       rax -> 22 on mmap_A_destruction
+    ;       rax -> 23 on mlock
+    ;       rax -> 24 on openat
+    ;       rax -> 25 on fstat
+    ;       rax -> 26 on mmap
+    ;       rax -> 27 on ptrace
+    ;       rax -> 28 on RDRAND
+    ;       rax -> 29 on setrlimit
+    ;       rax -> 30 on prctl
+    ;       rax -> 31 on entries
+    ;       rax -> 32 on SIGin
+    ;       rax -> 33 on ascii_to_int
+    ;       rax -> 34 on int_to_ascii
+    ;       rax -> 35 on no_such_module
+    ;       rax -> 36 on frequency selection
+    ;       rax -> 37 on key input
+    ;       rax -> 38 on key wipe
+
     push rbp
     push r12
     push r13

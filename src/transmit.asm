@@ -382,7 +382,13 @@ SIGrypt_transmit:
     ;   
     ; Returns:
     ;       rax -> 0 on success
-    ;       rax -> -1 on failure
+    ;
+    ;       rax -> 50 on ioctl
+    ;       rax -> 51 on module write
+    ;       rax -> 52 on termios config
+    ;       rax -> 53 on module config
+    ;       rax -> 54 on general transmissions
+    ;       rax -> 55 on int_to_ascii
 
     push rbx
     push rbp
