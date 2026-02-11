@@ -16,7 +16,12 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 - USB to TTL Serial Converter
   
 ---
-![Logo](images/LoRa_Freqs.webp)
+![LoRa SDR View](images/LoRa_Freqs.webp)
+
+
+## Build
+
+![Build Demo](demo/build.gif)
 
 
 ## Regulatory / legality (US-only configuration)
