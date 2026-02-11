@@ -241,16 +241,14 @@ listen_LoRa:
         cmp byte [reception_response + rbx - 1], 10
         jne loop_LoRa
 
+
+        cmp dword [reception_response], 0X5643522B                  ; == "+RCV" ?
+        jne reset_offset
+
         lea rdi, [reception_response]
         mov rsi, rbx
 
         call SIGout
-
-        xor rbx, rbx
-
-        cmp dword [reception_response], 0X5643522B                  ; == "+RCV" ?
-        jne loop_LoRa
-
 
         lea rsi, [reception_response]
         lea rdi, [reception_response+reception_response_len]
