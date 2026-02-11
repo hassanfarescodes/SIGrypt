@@ -971,7 +971,7 @@ SIGrypt_load_key_file:
     syscall
 
     test rax, rax
-    js failed
+    js flow_mlock_failed
 
     mov rax, SYS_openat
     mov rdi, -100
@@ -981,7 +981,7 @@ SIGrypt_load_key_file:
     syscall
 
     test rax, rax
-    js failed
+    js flow_openat_failed
 
     mov r15, rax
 
@@ -991,7 +991,7 @@ SIGrypt_load_key_file:
     syscall
 
     test rax, rax
-    js failed
+    js flow_fstat_failed
 
     ; mmap B
 
@@ -1005,7 +1005,7 @@ SIGrypt_load_key_file:
     syscall
     
     test rax, rax
-    js failed
+    js flow_mmap_failed
 
     mov r14, rax
 
@@ -1051,13 +1051,13 @@ SIGrypt_load_key_file:
             edge_case_0:
 
                 cmp rsi, rcx
-                jae failed_post_mmap_B
+                jae flow_failed_post_mmap_B
 
                 cmp byte [rsi], 10
                 je copy_done
 
                 cmp r10, rdx
-                jae failed_post_mmap_B
+                jae flow_failed_post_mmap_B
 
                 mov al, byte [rsi]
                 mov byte [r10], al
@@ -1104,7 +1104,7 @@ SIGrypt_load_key_file:
             call SIGout
             
             test rax, rax
-            jnz failed_post_mmap_B
+            jnz flow_failed_post_mmap_B
 
             lea rdi, [initial_key]
             mov rsi, 256
@@ -1112,7 +1112,7 @@ SIGrypt_load_key_file:
             call zero_fill
 
             test rax, rax
-            jnz failed_initial_key_wipe
+            jnz flow_failed_initial_key_wipe
 
             mov rax, SYS_munlock
             lea rdi, [initial_key]
@@ -1127,7 +1127,7 @@ SIGrypt_load_key_file:
                 syscall
 
             pop rbp
-            jmp terminate 
+            jmp flow_terminate 
 
 
 check_RDRAND:
@@ -1213,14 +1213,14 @@ _start:
     syscall
   
     test rax, rax
-    ;js failed                                      <-------- TODO: Remove after debugging
+    ;js flow_ptrace_failed                                     <-------- TODO: Remove after debugging
 
     ; Check if RDRAND is supported
 
     call check_RDRAND
 
     test rax, rax
-    jz failed
+    jz flow_RDRAND_failed
 
     mov rax, SYS_setrlimit
     mov rdi, 4
@@ -1228,7 +1228,7 @@ _start:
     syscall
     
     test rax, rax
-    js failed
+    js flow_setrlimit_failed
 
     mov rax, SYS_prctl
     mov rdi, 4
@@ -1239,7 +1239,7 @@ _start:
     syscall
 
     test rax, rax
-    js failed
+    js flow_prctl_failed
 
     lea rdi, [ascii_art]
     mov rsi, ascii_art_len
@@ -1259,14 +1259,14 @@ _start:
     je SIGrypt_load_key_file
 
     cmp bl, '3'
-    je terminate
+    je flow_terminate
 
     ; Send a message
   
     call detect_entries
 
     test rax, rax
-    jnz failed
+    jnz flow_entries_failed
 
     lea rdi, [USB_prompt]
     mov rsi, USB_prompt_len
@@ -1279,7 +1279,7 @@ _start:
     call SIGin
 
     test rax, rax
-    js failed
+    js flow_SIGin_failed
 
     lea rdi, [USB_num]
     mov rsi, rax
@@ -1295,7 +1295,7 @@ _start:
     syscall
 
     test rax, rax
-    js no_such_module
+    js flow_no_such_module
 
     mov [module_FD], rax
 
@@ -1310,7 +1310,7 @@ _start:
     call SIGin
 
     test rax, rax
-    js failed
+    js flow_SIGin_failed
 
     lea rdi, [Freq_num]
     mov rsi, 4
@@ -1318,13 +1318,13 @@ _start:
     call ascii_to_int
 
     test rax, rax
-    js failed
+    js flow_ascii2int_failed
 
     cmp rax, 20
-    jg Frequency_error
+    jg flow_frequency_error
 
     cmp rax, 1
-    jl Frequency_error
+    jl flow_frequency_error
   
     mov rdi, rax
 
@@ -1341,11 +1341,11 @@ reception_phase:
     mov rsi, [frequency_ptr]
 
     call SIGrypt_receive
-    
-    test rax, rax
-    jnz failed
 
-    jmp terminate
+    ; SIGrypt_receive return code is
+    ; carried into "terminate"
+    
+    jmp flow_terminate
    
 
 transmission_phase:  
@@ -1362,7 +1362,7 @@ transmission_phase:
     syscall
 
     test rax, rax
-    js failed
+    js flow_mmap_failed
 
     mov r12, rax
 
@@ -1372,7 +1372,7 @@ transmission_phase:
     syscall
     
     test rax, rax
-    js failed_post_mmap_A
+    js flow_failed_post_mmap_A
 
     lea rdi, [Key_prompt]
     mov rsi, Key_pro_len
@@ -1382,7 +1382,7 @@ transmission_phase:
     call SIGrypt_mlock_masters
 
     test rax, rax
-    js failed_post_mmap_A
+    js flow_failed_post_mmap_A
 
     lea rdi, [master_key]
     mov rsi, 256
@@ -1390,7 +1390,7 @@ transmission_phase:
     call SIGin
 
     test rax, rax
-    js failed_post_mmap_A
+    js flow_failed_post_mmap_A
 
     mov [master_key_len], rax
 
@@ -1400,7 +1400,7 @@ transmission_phase:
     call count_spaces
 
     cmp rax, 23
-    jne key_input_failed
+    jne flow_key_input_failed
 
     lea rdi, [Mes_prompt]
     mov rsi, Mes_pro_len
@@ -1413,7 +1413,7 @@ transmission_phase:
     call SIGin
 
     test rax, rax
-    jle failed_post_mmap_A
+    jle flow_failed_post_mmap_A
 
     mov qword [plaintext_len], rax
 
@@ -1443,7 +1443,7 @@ transmission_phase:
     call sha384
 
     test rax, rax
-    jnz failed_post_mmap_A
+    jnz flow_failed_post_mmap_A
 
     lea rdi, [master_key]
     mov rsi, [master_key_len]
@@ -1465,7 +1465,7 @@ transmission_phase:
     call sha384
 
     test rax, rax
-    jnz failed_post_mmap_A
+    jnz flow_failed_post_mmap_A
 
 
     lea rdi, [IV]
@@ -1474,7 +1474,7 @@ transmission_phase:
     call randomize
 
     test rax, rax
-    jnz failed_post_mmap_A
+    jnz flow_failed_post_mmap_A
 
     lea rdi, [r12]  
   
@@ -1484,7 +1484,7 @@ transmission_phase:
     call ENCRYPT_AES
 
     test rax, rax
-    jnz failed_post_mmap_A
+    jnz flow_failed_post_mmap_A
 
     lea rdi, [IV]
     mov rsi, IV_len
@@ -1493,7 +1493,7 @@ transmission_phase:
     call bytes_to_hex
 
     cmp rax, IV_len * 2
-    jne failed_post_mmap_A
+    jne flow_failed_post_mmap_A
 
     lea rdi, [ciphertext]
     mov rsi, [plaintext_len]
@@ -1518,6 +1518,9 @@ transmission_phase:
     lea rsi, [time_buffer]
 
     call int_to_ascii
+
+    test rax, rax
+    js flow_int2ascii_failed
 
     mov [time_buffer_len], rax
 
@@ -1611,7 +1614,7 @@ transmission_phase:
     call SIGrypt_wipe_sensitive
 
     test rax, rax
-    js failed_post_mmap_A
+    js flow_failed_post_mmap_A
 
     lea rdi, [newline]
     mov rsi, 1
@@ -1633,10 +1636,13 @@ transmission_phase:
 
     call SIGrypt_transmit
 
-    test rax, rax
-    jnz failed_post_mmap_A
+    ; return code is carried into
+    ; the "terminate" function
 
-destroy_A:
+    test rax, rax
+    jnz flow_terminate
+
+flow_destroy_A:
 
     mov rdi, r12
     mov rsi, block_size
@@ -1655,51 +1661,14 @@ destroy_buffers:
     call SIGrypt_wipe_buffers
 
     test rax, rax
-    jnz failed_SIGrypt_buffer_wipes
+    jnz flow_failed_SIGrypt_buffer_wipes
     
     call SIGrypt_munlock_masters
 
-terminate:
+    xor rax, rax
 
-    pop rbx
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop rbp
+flow_terminate:
 
-    mov rax, SYS_exit
-    xor rdi, rdi
-    syscall
-
-failed_post_mmap_B:
-
-    mov rax, SYS_munmap
-    mov rdi, r14
-    mov rsi, [fstat_buf + 48]
-    syscall
-
-    pop rbp
-
-    jmp failed
-
-failed_post_mmap_A:
-
-    mov rdi, r12
-    mov rsi, block_size
-    
-    call destroy_block
-
-    test rax, rax
-    jz failed
-
-    lea rdi, [error_A]
-    mov rsi, error_len
-    
-    call SIGout
-
-failed:
-   
     pop rbx
     pop r15
     pop r14
@@ -1711,34 +1680,138 @@ failed:
     mov rax, SYS_exit
     syscall
 
-no_such_module:
+flow_failed_post_mmap_B:
+
+    mov rax, SYS_munmap
+    mov rdi, r14
+    mov rsi, [fstat_buf + 48]
+    syscall
+
+    pop rbp
+
+    mov rax, 20
+
+    jmp flow_terminate
+
+flow_failed_post_mmap_A:
+
+    mov rdi, r12
+    mov rsi, block_size
+    
+    call destroy_block
+
+    test rax, rax
+    jnz mmap_A_destruction_failed
+
+    mov rax, 21
+    
+    jmp flow_terminate
+
+    mmap_A_destruction_failed:
+
+        lea rdi, [error_A]
+        mov rsi, error_len
+        
+        call SIGout
+
+        mov rax, 22
+
+        jmp flow_terminate
+
+flow_mlock_failed:
+
+    mov rax, 23
+    jmp flow_terminate
+
+flow_openat_failed:
+    
+    mov rax, 24
+    jmp flow_terminate
+
+flow_fstat_failed:
+
+    mov rax, 25
+    jmp flow_terminate
+
+flow_mmap_failed:
+
+    mov rax, 26
+    jmp flow_terminate
+
+flow_ptrace_failed:
+
+    mov rax, 27
+    jmp flow_terminate
+
+flow_RDRAND_failed:
+
+    mov rax, 28
+    jmp flow_terminate
+   
+flow_setrlimit_failed:
+
+    mov rax, 29
+    jmp flow_terminate
+
+flow_prctl_failed:
+
+    mov rax, 30
+    jmp flow_terminate
+
+flow_entries_failed:
+    
+    mov rax, 31
+    jmp flow_terminate
+
+flow_SIGin_failed:
+
+    mov rax, 32
+    jmp flow_terminate
+
+flow_ascii2int_failed:
+
+    mov rax, 33
+    jmp flow_terminate
+
+flow_int2ascii_failed:
+
+    mov rax, 34
+    jmp flow_terminate
+
+flow_no_such_module:
     
     lea rdi, [USB_error]
     mov rsi, USB_error_len
     
     call SIGout
 
-    jmp failed
+    mov rax, 35
 
-Frequency_error:
+    jmp flow_terminate
+
+flow_frequency_error:
     
     lea rdi, [Freq_error]
     mov rsi, Freq_error_len
 
     call SIGout
 
-    jmp failed
+    mov rax, 36
 
-key_input_failed:
+    jmp flow_terminate
+
+flow_key_input_failed:
 
     lea rdi, [Crit_prompt]
     mov rsi, Crit_prompt_len
       
     call SIGout
 
-    jmp failed_post_mmap_A
+    mov rax, 37
 
-failed_initial_key_wipe:
+    jmp flow_failed_post_mmap_A
+
+flow_failed_initial_key_wipe:
 
     lea rdi, [error_init]
     mov rsi, error_init_len
@@ -1747,14 +1820,17 @@ failed_initial_key_wipe:
 
     pop rbp
 
-    jmp failed
+    mov rax, 38
+
+    jmp flow_terminate
 
 
-failed_SIGrypt_buffer_wipes:
+flow_failed_SIGrypt_buffer_wipes:
     
     lea rdi, [error_wipes]
     mov rsi, error_wipes_len
 
     call SIGout
     
-    jmp failed_post_mmap_A
+    jmp flow_failed_post_mmap_A
+

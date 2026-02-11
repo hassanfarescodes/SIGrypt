@@ -74,7 +74,7 @@ termios_config:
     syscall
 
     test rax, rax
-    js transmission_failed
+    js termios_ioctl_failed
 
     mov dword [termios_block], 0                ; c_iflag = 0   (Disable input processing)
     mov dword [termios_block + 4], 0            ; c_oflag = 0   (Disable output processing)
@@ -116,6 +116,12 @@ termios_config:
     js termios_config_failed
 
     xor rax, rax
+    ret
+
+termios_ioctl_failed:
+    pop r14
+
+    mov rax, -2
     ret
 
 termios_config_failed:
@@ -397,7 +403,7 @@ SIGrypt_transmit:
     call termios_config
 
     test rax, rax
-    js transmission_failed
+    js trans_termios_config_failed
 
     lea rdi, [r15]
     mov rsi, r14
@@ -405,7 +411,7 @@ SIGrypt_transmit:
     call config_module
 
     test rax, rax
-    js transmission_failed
+    js trans_config_module_failed
 
     lea rdi, [cmd_Address_T]
     mov rsi, cmd_Address_T_len
@@ -413,7 +419,7 @@ SIGrypt_transmit:
     call write_loop
     
     test rax, rax
-    jnz transmission_failed
+    jnz trans_write_failed
 
 
 
@@ -462,7 +468,7 @@ start_transmissions:
     xor rbp, rbp
 
     cmp r13, 45*FREQ_COUNT
-    ja  transmission_failed
+    ja  trans_transmissions_failed
     
     lea rdi, [transmission_prompt]
     mov rsi, transmission_prompt_len
@@ -509,7 +515,7 @@ start_transmissions:
         call int_to_ascii
 
         test rax, rax
-        js transmission_failed
+        js trans_int2ascii_failed
 
         mov [frequency_buffer_len], rax
         add qword [frequency_buffer_len], cmd_Band_len
@@ -536,10 +542,18 @@ start_transmissions:
     
 transmission_succeeded:
 
+    xor rax, rax
+
+transmission_terminate:
+
+    mov rbx, rax
+
     mov rax, SYS_close
     mov rdi, r14
     syscall
 
+    mov rax, rbx
+
     add rsp, 8
 
     pop r15
@@ -549,21 +563,37 @@ transmission_succeeded:
     pop rbp
     pop rbx
 
-    xor rax, rax
-
     ret
 
-transmission_failed:
-    
-    add rsp, 8
-    
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop rbp
-    pop rbx
+trans_ioctl_failed:
 
-    mov rax, -1
+    mov rax, 50
+    jmp transmission_terminate
 
-    ret
+trans_write_failed:
+
+    mov rax, 51
+    jmp transmission_terminate
+
+trans_termios_config_failed:
+
+    cmp rax, -2
+    je trans_ioctl_failed
+
+    mov rax, 52
+    jmp transmission_terminate
+
+trans_config_module_failed:
+
+    mov rax, 53
+    jmp transmission_terminate
+
+trans_transmissions_failed:
+
+    mov rax, 54
+    jmp transmission_terminate
+
+trans_int2ascii_failed:
+
+    mov rax, 55
+    jmp transmission_terminate

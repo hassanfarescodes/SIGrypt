@@ -1,0 +1,41 @@
+     
+    ----------              -----------                 --------
+    ERROR_CODE              DESCRIPTION                 LOCATION
+    ----------              -----------                 --------
+
+        1                   destruction                 receive.asm
+        2                   padding strip               *
+        3                   module config               *
+        4                   module write                *
+        5                   SIGrypt format              *
+        6                   data block alloc            *
+        7                   general reception           *
+
+        20                  post_mmap_B                 flow.asm
+        21                  post_mmap_A                 *
+        22                  mmap_A_destruction          *
+        23                  mlock                       *
+        24                  openat                      *
+        25                  fstat                       *
+        26                  mmap                        *
+        27                  ptrace                      *
+        28                  RDRAND                      *
+        29                  setrlimit                   *
+        30                  prctl                       *
+        31                  entries                     *
+        32                  SIGin                       *
+        33                  ascii_to_int                *
+        34                  int_to_ascii                *
+        35                  no_such_module              *
+        36                  frequency selection         *
+        37                  key input                   *
+        38                  key wipe                    * 
+
+        50                  ioctl                       transmit.asm
+        51                  module write                *
+        52                  termios config              *
+        53                  module config               *
+        54                  general transmissions       *
+        55                  int_to_ascii                *
+
+

@@ -354,13 +354,13 @@ SIGrypt_receive:
     ; Returns:
     ;       rax ->  0 on success
     ;   
-    ;       rax ->  6 on block destruction failure
-    ;       rax ->  5 on strip-padding failure
-    ;       rax ->  4 on config failure
-    ;       rax ->  3 on write failure
-    ;       rax ->  2 on non SIGrypt format
-    ;       rax ->  1 on data block alloc failure
-    ;       rax -> -1 on reception failure
+    ;       rax -> 1 on block destruction failure
+    ;       rax -> 2 on strip-padding failure
+    ;       rax -> 3 on config failure
+    ;       rax -> 4 on write failure
+    ;       rax -> 5 on non SIGrypt format
+    ;       rax -> 6 on data block alloc failure
+    ;       rax -> 7 on reception failure
 
     push rbx
     push rbp
@@ -450,37 +450,37 @@ SIGrypt_receive:
 
 rec_destruction_failure:
 
-    mov rax, 6
+    mov rax, 1
     jmp terminate_reception
 
 rec_strip_failed:
 
-    mov rax, 5
+    mov rax, 2
     jmp terminate_reception
 
 rec_config_failed:
 
-    mov rax, 4
+    mov rax, 3
     jmp terminate_reception
 
 rec_write_failed:
     
-    mov rax, 3
+    mov rax, 4
     jmp terminate_reception
 
 SIGrypt_format_invalid:
 
-    mov rax, 2
+    mov rax, 5
     jmp terminate_reception
 
 rec_data_block_alloc_failed:
 
-    mov rax, 1
+    mov rax, 6
     jmp terminate_reception
 
 reception_failed:
 
-    mov rax, -1
+    mov rax, 7
     jmp terminate_reception
 
 reception_success:
