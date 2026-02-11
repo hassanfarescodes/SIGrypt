@@ -62,6 +62,9 @@ section .rodata
     Crit_prompt     db 10, "Please enter exactly 24 words for the key!", 10
     Crit_prompt_len equ $ - Crit_prompt
 
+    In_prompt       db 10, "Please enter 1024 bytes or less!", 10
+    In_prompt_len   equ $ - In_prompt
+
     Tip_prompt      db 10, "Tip: Tired of typing your inputs? Go to /misc for info to automate this process!", 10
     Tip_prompt_len  equ $ - Tip_prompt
 
@@ -1408,12 +1411,15 @@ transmission_phase:
     call SIGout
 
     lea rdi, [plaintext]
-    mov rsi, 1024
+    mov rsi, 1025
 
     call SIGin
 
     test rax, rax
     jle flow_failed_post_mmap_A
+
+    cmp rax, 1025
+    jge input_max_exceeded
 
     mov qword [plaintext_len], rax
 
@@ -1834,3 +1840,11 @@ flow_failed_SIGrypt_buffer_wipes:
     
     jmp flow_failed_post_mmap_A
 
+input_max_exceeded:
+
+    lea rdi, [In_prompt]
+    mov rsi, In_prompt_len
+    
+    call SIGout
+
+    jmp flow_failed_post_mmap_A
