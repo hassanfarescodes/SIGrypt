@@ -17,6 +17,7 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
   
 ---
 ![LoRa SDR View](images/LoRa_Freqs.webp)
+
 ---
 
 ## Build
