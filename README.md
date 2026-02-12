@@ -28,7 +28,7 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 
 ## Zero Libraries
 
-This repository uses zero libraries for **portability**, **transparency**, and **attack surface** reduction.
+This repository uses zero libraries for **portability**, **transparency**, and **attack surface reduction**.
 
 ---
 
@@ -47,6 +47,8 @@ Anti-replay techniques are employed such as:
 - **Duplicate ID Caching**: caching 3 most recent message IDs (Rejects payload if ID is already cached)
 - **Time-sensitive Validation**: Rejecting old payloads (Payload Age > 30 seconds)
 - **Cryptographically Binded**: timestamp of payload is cryptographically binded using native HMAC-SHA384
+
+---
 
 ## Regulatory / legality (US-only configuration)
 
