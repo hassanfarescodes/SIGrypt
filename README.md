@@ -46,9 +46,9 @@ This repository uses zero libraries for **portability**, **transparency**, and *
 
 Anti-replay techniques are employed such as:
 
-- **Duplicate ID Caching**: caching 3 most recent message IDs (Rejects payload if ID is already cached)
-- **Time-sensitive Validation**: Rejecting old payloads (Payload Age > 30 seconds)
-- **Cryptographically Binded**: timestamp of payload is cryptographically binded using native HMAC-SHA384
+- **Duplicate ID Caching**: Caches the 3 most recent message IDs (Rejects payload if ID is already cached)
+- **Time-sensitive Validation**: Rejects old payloads (Payload Age > 30 seconds)
+- **Cryptographically Binded**: Binds timestamp of payload using native HMAC-SHA384
 
 ---
 
