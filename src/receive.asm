@@ -57,6 +57,7 @@ section .text
     extern termios_config
     extern config_module
     extern SIGrypt_CRC_Validate
+    extern hmac_validate
     extern destroy_block
     extern hex_to_bytes
     global SIGrypt_receive
@@ -427,27 +428,6 @@ SIGrypt_receive:
     test rax, rax
     js SIGrypt_format_invalid
 
-    mov rax, SYS_mmap
-    mov rdi, 0
-    mov rsi, block_size
-    mov rdx, 1 | 2
-    mov r10, 2 | 0x20
-    mov r8, -1
-    mov r9,  0
-    syscall
-
-    test rax, rax
-    js rec_data_block_alloc_failed
-
-    mov r12, rax
-
-    mov rax, SYS_mlock
-    lea rdi, [r12]
-    mov rsi, block_size
-    syscall
-
-    js rec_mlock_failed
-
     mov rax, [data_length]
     sub rax, CRC_len * 2                    ; rax now is length at CRC tag
     lea rsi, [reception_buffer]
@@ -470,11 +450,36 @@ SIGrypt_receive:
     sub rsi, CRC_len * 2
     lea rdx, [rec_CRC_tag]
 
-    ; in CRC errors, negative address for rax, and possible off by one for rec_CRC_tag
-
     call SIGrypt_CRC_Validate
 
+    test rax, rax
     jnz rec_CRC_validation_failed
+
+    lea rsi, [reception_buffer]
+    add rsi, [data_length]
+    sub rsi, (CRC_len * 2 + HMAC_len * 2)
+    lea rdi, [HMAC_hex]
+    mov rcx, HMAC_len * 2
+    rep movsb
+
+    lea rdi, [HMAC_hex]
+    mov rsi, HMAC_len * 2
+    lea rdx, [HMAC]
+    
+    call hex_to_bytes
+
+    lea rdi, [reception_buffer]
+    mov rsi, [data_length]
+    sub rsi, (CRC_len * 2 + HMAC_len * 2)
+    lea rdx, [HMAC_key]
+    mov rcx, HMAC_len
+    lea r8, [HMAC]
+
+    call hmac_validate
+
+    test rax, rax
+    jnz rec_HMAC_validation_failed 
+    
   
 rec_destroy_A:
 
@@ -554,4 +559,9 @@ rec_hex2bytes_failed:
 rec_CRC_validation_failed:
 
     mov rax, 10
+    jmp terminate_reception
+
+rec_HMAC_validation_failed:
+    
+    mov rax, 11
     jmp terminate_reception

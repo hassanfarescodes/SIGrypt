@@ -383,9 +383,9 @@ int hmac_sha384(const uint8_t *message, size_t len, const uint8_t *key, size_t k
             rax -> -1 on failure
     */
 
-    if (!out) return -1;
-    if (len && !message) return -1;
-    if (key_size && !key) return -1;
+    if (!out)               { return -1; }
+    if (len && !message)    { return -1; }
+    if (key_size && !key)   { return -1; }
 
     enum {block_size = 128,    // SHA384 uses 1024 bit block, 1024 / 8 = 128 byte
           hash_size  = 48} ;  // SHA384 hash size
@@ -468,4 +468,50 @@ int hmac_sha384(const uint8_t *message, size_t len, const uint8_t *key, size_t k
     zero_fill(opad, block_size);
 
     return 0;
+}
+
+int hmac_validate(const uint8_t *message, size_t len, const uint8_t *key, size_t key_size, uint8_t in[48]){
+
+    /*
+     Purpose:
+            Validates if computed hmac matches with inputted hmac
+    
+     Args:
+            message -> bytes to hash
+            len     -> length of bytes to hash
+            key     -> hmac key
+            key_size-> size of the hmac key
+            in      -> inputted hmac
+      
+     Returns:
+            rax -> 0 on success
+            rax -> -1 on failure
+    */
+  
+    if(!message || !len || !key || !key_size || !in)    { return -1; }
+
+    uint8_t computed_hmac[48];
+
+    int code = hmac_sha384(message, len, key, key_size, computed_hmac);
+
+    if(code != 0){
+
+        return -1;
+
+    }
+
+    uint8_t check = 0;
+
+    // Constant time check
+
+    for(int i = 0; i < 48; i++){
+
+        check |= (computed_hmac[i] ^ in[i]);
+
+    }
+
+    zero_fill(computed_hmac, 48);
+
+    return (check == 0) ? 0 : -1;
+
 }

@@ -1363,24 +1363,6 @@ START_SIGrypt:
 
     mov qword [frequency_ptr], rax
 
-    cmp bl, '1'
-    je transmission_phase
-
-reception_phase:
-
-    mov rdi, [module_FD]
-    mov rsi, [frequency_ptr]
-
-    call SIGrypt_receive
-
-    ; SIGrypt_receive return code is
-    ; carried into "terminate"
-    
-    jmp flow_terminate
-   
-
-transmission_phase:  
-
     ; mmap A
 
     mov rax, SYS_mmap
@@ -1433,6 +1415,9 @@ transmission_phase:
     cmp rax, 23
     jne flow_key_input_failed
 
+    cmp bl, '2'                                     ; Receiver-tailored
+    je flow_post_inputs
+
     lea rdi, [Mes_prompt]
     mov rsi, Mes_pro_len
 
@@ -1456,6 +1441,8 @@ transmission_phase:
     sete al
     movzx eax, al
     sub qword [plaintext_len], rax
+
+flow_post_inputs:
 
     lea rdi, [master_key]
     mov rsi, [master_key_len]
@@ -1501,6 +1488,22 @@ transmission_phase:
     test rax, rax
     jnz flow_failed_post_mmap_A
 
+    cmp bl, '1'
+    je transmission_phase    
+
+reception_phase:
+
+    mov rdi, [module_FD]
+    mov rsi, [frequency_ptr]
+
+    call SIGrypt_receive
+
+    ; SIGrypt_receive return code is
+    ; carried into "terminate"
+    
+    jmp flow_terminate
+
+transmission_phase:
 
     lea rdi, [IV]
     mov rsi, IV_len
