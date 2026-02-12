@@ -26,6 +26,12 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 
 ---
 
+## Zero Libraries
+
+This repository uses zero libraries for **portability**, **transparency**, and **attack surface** reduction.
+
+---
+
 ## Cryptography
 
 - Native AES-256-CTR  : Passed official NIST SP 800-38A CTR and IETF RFC3686 CTR official test vectors
@@ -33,6 +39,14 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 - Native HMAC-SHA384  : Passed official NIST test vectors (HMAC.rsp)
 
 ---
+
+## Replay Protection
+
+Anti-replay techniques are employed such as:
+
+- **Duplicate ID Caching**: caching 3 most recent message IDs (Rejects payload if ID is already cached)
+- **Time-sensitive Validation**: Rejecting old payloads (Payload Age > 30 seconds)
+- **Cryptographically Binded**: timestamp of payload is cryptographically binded using native HMAC-SHA384
 
 ## Regulatory / legality (US-only configuration)
 
