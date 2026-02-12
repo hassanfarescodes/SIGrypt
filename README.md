@@ -26,7 +26,13 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 
 ---
 
-## Zero Libraries
+## Wiring
+
+![Wiring connections](image/connections.webp)
+
+---
+
+## Dependency-Free
 
 This repository uses zero libraries for **portability**, **transparency**, and **attack surface reduction**.
 
