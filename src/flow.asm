@@ -84,8 +84,6 @@ section .rodata
     HMAC_label      db " mac", 0
     label_len       equ $ - HMAC_label
     
-    newline         db 10
-    
     hex_symbols     db "0123456789ABCDEF"
     
     key_path        db "../include/key_words.txt", 0
@@ -172,6 +170,7 @@ section .text
     extern SIGrypt_transmit
     global destroy_block
     global int_to_ascii
+    global ascii_to_int
     global SIGout
     global hex_to_bytes
     global START_SIGrypt

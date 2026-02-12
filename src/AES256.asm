@@ -20,6 +20,7 @@ DEFAULT REL
 
 section .text
 global ENCRYPT_AES
+global DECRYPT_AES
 
 %macro KEY_HELPER_A 1
 
@@ -82,66 +83,9 @@ global ENCRYPT_AES
 
 %endmacro
 
+expand_keys:
 
-inc_IV:
-
-    mov rax, [IV_copy + 8]
-    bswap rax
-    add rax, 1
-    jc overflowed_IV 
-    bswap rax
-    mov [IV_copy + 8], rax
-
-    xor rax, rax
-    
-    ret
-
-overflowed_IV:
-
-    mov rax, 1
-
-    ret
-    
-
-ENCRYPT_AES:
-
-    ; Purpose:
-    ;       Encrypts "plaintext" in data block and writes
-    ;       "ciphertext" to data block
-    ;
-    ; Args:
-    ;       rdi -> start address of data block
-    ;       Uses:   plaintext_len , IV_copy, key_schedule
-    ;               AES_key, roundkeys
-    ;
-    ; Returns:
-    ;       rax -> 0 on success
-    ;       rax -> -1 on failure
-
-
-    push rbp
-    push r12
     push rbx
-
-    mov r12, rdi
-
-    ; First check to see if CPU supports AES instructions
-    mov rax, 1
-
-    cpuid   ; Returns to 32-bit registers
-
-    bt ecx, 25
-
-    jc compatible   ; CPU supports AES instructions
-
-    pop rbx
-    pop r12
-    pop rbp
-
-    mov rax, 2
-    ret
-
-compatible:
     
     movdqu xmm1, [AES_key]
     movdqu xmm2, [AES_key + 16]
@@ -181,6 +125,75 @@ compatible:
 
     KEY_HELPER_A 0x40
     movdqu [roundkeys + 14*16], xmm1
+
+    pop rbx
+    
+    ret
+
+
+inc_IV:
+
+    mov rax, [IV_copy + 8]
+    bswap rax
+    add rax, 1
+    jc overflowed_IV 
+    bswap rax
+    mov [IV_copy + 8], rax
+
+    xor rax, rax
+    
+    ret
+
+overflowed_IV:
+
+    mov rax, 1
+
+    ret
+    
+
+ENCRYPT_AES:
+
+    ; Purpose:
+    ;       Encrypts "plaintext" in data block and writes
+    ;       "ciphertext" to data block
+    ;
+    ; Args:
+    ;       rdi -> start address of data block
+    ;       Uses:   plaintext_len , IV_copy, key_schedule
+    ;               AES_key, roundkeys
+    ;
+    ; Returns:
+    ;       rax -> 0 on success
+    ;       rax -> -1 on failure
+    ;       rax -> 1 on IV overflow
+    ;       rax -> 2 on compatibility failure
+
+
+    push rbp
+    push r12
+    push rbx
+
+    mov r12, rdi
+
+    ; First check to see if CPU supports AES instructions
+    mov rax, 1
+
+    cpuid   ; Returns to 32-bit registers
+
+    bt ecx, 25
+
+    jc compatible   ; CPU supports AES instructions
+
+    pop rbx
+    pop r12
+    pop rbp
+
+    mov rax, 2
+    ret
+
+compatible:
+
+    call expand_keys
 
     movdqu xmm1, [IV]
     movdqu [IV_copy], xmm1
@@ -257,8 +270,16 @@ DECRYPT_AES:
 
     mov r12, rdi
 
-    
-    
+    call expand_keys
+
+    movdqu xmm1, [IV]
+    movdqu [IV_copy], xmm1
+
+    lea rsi, [ciphertext]
+    lea rdi, [decrypted]
+    mov rbx, qword [plaintext_len]          ; plaintext length is same as ciphertext length in AES-CTR
+
+    jmp encrypt                             ; AES-CTR encryption is inverse to decryption, "encrypt" again to decrypt due to XOR nature
 
 encrypted:
   

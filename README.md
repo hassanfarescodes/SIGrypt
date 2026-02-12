@@ -59,3 +59,10 @@ Anti-replay techniques are employed such as:
 - **You are responsible for legal operation and compliance** with FCC rules (frequency use, transmit power, antenna, hopping/dwell time, duty cycle, and any required labeling/testing for your finished device).  
 - **FCC-certified modules do not automatically make your full build/product compliant.**
 - This software is provided **as-is** with no warranty of regulatory compliance.
+
+---
+
+## Future Goals
+
+- Maintain the repo and update regularly
+- Increase compatibility to the HackRF One board

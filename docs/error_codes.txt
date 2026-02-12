@@ -12,6 +12,11 @@
         7                   general reception           *
         8                   mlock                       *
         9                   hex_to_bytes                *
+        10                  CRC validation              *
+        11                  HMAC validation             *
+        12                  Encrypted Data              *
+        13                  Decryption                  *
+        14                  Timestamp validation        *
 
         20                  post_mmap_B                 flow.asm
         21                  post_mmap_A                 *

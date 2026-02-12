@@ -21,9 +21,9 @@ DEFAULT REL
 ; --------------------------------------------------------------------------------
 ; AES Encrypted Ciphtertext || IV || - || time seconds || HMAC tag || CRC checksum
 ; --------------------------------------------------------------------------------
-; Size:      2048              32    2         16            96           16
+; Size:      2048              32    1         16            96           16
 ;
-; Total max size: 2210 bytes 
+; Total max size: 2209 bytes 
 ; ================================================================================
 
 
@@ -46,11 +46,14 @@ section .bss
     reception_response          resb reception_response_len     ; +RCV=<Address>,<Length>,<Data>,<RSSI>,<SNR>\r\n
     rec_CRC_tag                 resb CRC_len
     rec_CRC_tag_hex             resb CRC_len * 2
+    cipher_IV_length            resq 1
     data_length                 resq 1
+    first_packet_rec            resb 1
 
 section .text
     
     extern int_to_ascii
+    extern ascii_to_int
     extern write_loop                   
     extern SIGout
     extern append_CRLF
@@ -60,6 +63,7 @@ section .text
     extern hmac_validate
     extern destroy_block
     extern hex_to_bytes
+    extern DECRYPT_AES
     global SIGrypt_receive
 
 
@@ -216,6 +220,8 @@ listen_LoRa:
     
     call SIGout
 
+    mov byte [first_packet_rec], 0
+
     reset_offset:
     
         xor rbx, rbx
@@ -246,14 +252,27 @@ listen_LoRa:
         cmp dword [reception_response], 0X5643522B                  ; == "+RCV" ?
         jne reset_offset
 
-        lea rdi, [reception_response]
-        mov rsi, rbx
+        ; lea rdi, [reception_response]                             ; Uncomment to see serial receptions
+        ; mov rsi, rbx
+
+        ; call SIGout
+
+        mov al, byte [first_packet_rec]
+        cmp al, 1
+        je post_first_packet
+
+        lea rdi, [reception_first_packet]
+        mov rsi, reception_first_packet_len
 
         call SIGout
 
-        lea rsi, [reception_response]
-        lea rdi, [reception_response+reception_response_len]
-        xor rcx, rcx
+        mov byte [first_packet_rec], 1
+        
+        post_first_packet:
+
+            lea rsi, [reception_response]
+            lea rdi, [reception_response+reception_response_len]
+            xor rcx, rcx
 
         find_data:
 
@@ -280,10 +299,10 @@ listen_LoRa:
 
         add r15, 45
 
-        mov rdi, 10
-        mov rsi, 1
+        ; mov rdi, 10                                               ; Aids in serial debug visualization, prints \n
+        ; mov rsi, 1
         
-        call SIGout
+        ; call SIGout
 
         xor rbx, rbx
 
@@ -366,6 +385,10 @@ SIGrypt_receive:
     ;       rax -> 8 on malock failure
     ;       rax -> 9 on hex_to_bytes failure
     ;       rax -> 10 on CRC validation failure
+    ;       rax -> 11 on hmac validation failure
+    ;       rax -> 12 on absent encrypted data
+    ;       rax -> 13 on decryption failure
+    ;       rax -> 14 on timestamp validation failure
 
     push rbx
     push rbp
@@ -416,11 +439,6 @@ SIGrypt_receive:
     mov qword [data_length], rax
 
     lea rdi, [reception_buffer]
-    mov rsi, reception_buffer_len
-
-    call SIGout
-
-    lea rdi, [reception_buffer]
     mov rsi, [data_length]
 
     call is_SIGrypt_format
@@ -468,6 +486,9 @@ SIGrypt_receive:
     
     call hex_to_bytes
 
+    test rax, rax
+    js rec_hex2bytes_failed
+
     lea rdi, [reception_buffer]
     mov rsi, [data_length]
     sub rsi, (CRC_len * 2 + HMAC_len * 2)
@@ -478,8 +499,114 @@ SIGrypt_receive:
     call hmac_validate
 
     test rax, rax
-    jnz rec_HMAC_validation_failed 
+    jnz rec_HMAC_validation_failed
+        
+
+    lea rdi, [reception_buffer]
+    lea rsi, [reception_buffer]
+    add rsi, [data_length]
+
+    find_encrypted_data:
+
+        mov al, byte [rdi]
+
+        cmp rdi, rsi
+        je rec_absent_encrypted_failure
+
+        inc rdi
     
+        cmp al, '-'
+        jne find_encrypted_data
+        
+    found_encrypted_data:
+
+        ; General callee-saved registers safe to use past this point: rbx, r15
+
+        lea rbx, [rdi]              ; In this line, rbx and rdi point to payload transmission timestamp
+
+    rec_validate_timestamp:
+
+        mov rax, [data_length]      ; Length(timestamp) = End Address of Data - Start address of timestamp - HMAC length - IV length
+        lea rsi, [reception_buffer + rax]
+
+        sub rsi, rdi 
+        sub rsi, (HMAC_len * 2 + CRC_len * 2)
+
+        lea rdi, [rbx]
+        ; rsi is already calculated above
+
+        call ascii_to_int
+
+        mov r15, rax
+
+        mov rax, SYS_time
+        xor rdi, rdi
+        syscall
+
+        sub rax, r15
+
+        cmp rax, 30
+
+        jg rec_validate_timestamp_failed 
+
+    post_timestamp_validation:
+
+        lea rsi, [reception_buffer]
+        sub rbx, rsi                    ; Calculates the length of the encrypted data along with IV
+        dec rbx                         ; Accomadates for loop structure (inc rdi)
+
+        mov [cipher_IV_length], rbx
+
+        mov rdi, qword [cipher_IV_length]
+        sub rdi, IV_len * 2
+        shr rdi, 1
+
+        mov qword [plaintext_len], rdi
+
+        lea rdi, [reception_buffer]
+        mov rsi, [cipher_IV_length]
+        sub rsi, IV_len * 2
+        lea rdx, [ciphertext]
+
+        call hex_to_bytes
+
+        test rax, rax
+        js rec_hex2bytes_failed
+
+        lea rdi, [reception_buffer]
+        mov rsi, [cipher_IV_length]
+        sub rsi, IV_len * 2
+        add rdi, rsi
+        mov rsi, IV_len * 2
+        lea rdx, [IV]
+
+        call hex_to_bytes
+
+        test rax, rax
+        js rec_hex2bytes_failed
+
+        lea rdi, [r12]
+
+        call DECRYPT_AES
+
+        test rax, rax
+        jnz rec_decryption_failed
+
+        lea rdi, [rec_message_prompt]
+        mov rsi, rec_message_prompt_len
+
+        call SIGout
+
+        lea rdi, [decrypted]
+        mov rsi, [plaintext_len]
+
+        call SIGout
+
+        lea rdi, [newline]
+        mov rsi, 1
+        
+        call SIGout
+
   
 rec_destroy_A:
 
@@ -564,4 +691,19 @@ rec_CRC_validation_failed:
 rec_HMAC_validation_failed:
     
     mov rax, 11
+    jmp terminate_reception
+
+rec_absent_encrypted_failure:
+
+    mov rax, 12
+    jmp terminate_reception
+
+rec_decryption_failed:
+    
+    mov rax, 13
+    jmp terminate_reception
+
+rec_validate_timestamp_failed:
+
+    mov rax, 14
     jmp terminate_reception
