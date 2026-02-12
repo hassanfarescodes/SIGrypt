@@ -23,6 +23,15 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 
 ![Build Demo](demo/build.gif)
 
+---
+
+## Cryptography
+
+- Native AES-256-CTR  : Passed official NIST SP 800-38A CTR and IETF RFC3686 CTR official test vectors
+- Native SHA-384      : Passed official NIST test vectors (SHA384ShortMsg.rsp, SHA384LongMsg.rsp, SHA384Monte.rsp)
+- Native HMAC-SHA384  : Passed official NIST test vectors (HMAC.rsp)
+
+---
 
 ## Regulatory / legality (US-only configuration)
 
