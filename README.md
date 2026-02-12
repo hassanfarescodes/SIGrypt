@@ -24,11 +24,7 @@ SIGrypt is an end-to-end encrypted and LoRa-based communication software. Operat
 
 ![Build Demo](demo/build.gif)
 
----
-
-## Wiring
-
-![Wiring connections](images/connections.webp)
+[!] For help with wiring the module to the TTL check images/connections.webp
 
 ---
 
