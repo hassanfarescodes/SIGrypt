@@ -54,7 +54,7 @@ Anti-replay techniques are employed such as:
 
 ## Default AT Settings
 
-- '**Spreading Factor**: AT+PARAMETER=8,7,1,8         *include/behaviour_config.inc*'
+- `**Spreading Factor**: AT+PARAMETER=8,7,1,8         *include/behaviour_config.inc*`
 - **Network ID**: AT+NETWORKID=18 *include/behaviour_config.inc*
 - **Mode**: AT+MODE=0 *include/behaviour_config.inc*
 - **Output Power**: AT+CRFOP=20 *include/behaviour_config.inc*
