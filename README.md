@@ -52,6 +52,20 @@ Anti-replay techniques are employed such as:
 
 ---
 
+## Default AT Settings
+
+- **Spreading Factor**: AT+PARAMETER=8,7,1,8 *include/behaviour_config.inc*
+- **Network ID**: AT+NETWORKID=18 *include/behaviour_config.inc*
+- **Mode**: AT+MODE=0 *include/behaviour_config.inc*
+- **Output Power**: AT+CRFOP=20 *include/behaviour_config.inc*
+- **Receiver Address**: AT+ADDRESS=7775 *include/behaviour_config.inc*
+- **Sender Address**: AT+ADDRESS=7776 *include/behaviour_config.inc*
+- **Frequencies**: Frequency hopping with 1 of the 20 tables containing 50 shuffled frequencies (908 MHz to 920.25 MHz). When sorted, distance between adjacent frequencies is 250 kHz *include/frequency_variations.inc*
+
+**FCC Part 15 note:** Plaintext input is capped at **1024 bytes** to help limit on-air time (dwell/occupancy) when frequency hopping, in an effort to stay within FCC Part 15 expectations.
+
+SIGrypt is designed to **not** transmit if input is > 1024 bytes.
+
 ## Regulatory / legality (US-only configuration)
 
 - This project is **configured for the US 902–928 MHz ISM band**.
@@ -59,7 +73,7 @@ Anti-replay techniques are employed such as:
 - **You are responsible for legal operation and compliance** with FCC rules (frequency use, transmit power, antenna, hopping/dwell time, duty cycle, and any required labeling/testing for your finished device).  
 - **FCC-certified modules do not automatically make your full build/product compliant.**
 - This software is provided **as-is** with no warranty of regulatory compliance.
-
+  
 ---
 
 ## Future Goals
