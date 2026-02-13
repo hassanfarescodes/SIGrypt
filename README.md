@@ -65,7 +65,7 @@ Anti-replay techniques are employed such as:
 | **Frequencies**: Frequency hopping with 1 of the 20 tables containing 50 shuffled frequencies (908 MHz to 920.25 MHz). When sorted, distance between adjacent frequencies is 250 kHz | include/frequency_variations.inc |
 
 
-**FCC Part 15 note:** Plaintext input is capped at **1024 bytes** to help limit on-air time (dwell/occupancy) when frequency hopping, in an effort to stay within FCC Part 15 expectations.
+**FCC Part 15 Note:** Plaintext input is capped at **1024 bytes** to help limit on-air time (dwell/occupancy) when frequency hopping, in an effort to stay within FCC Part 15 expectations.
 
 SIGrypt is designed to **not** transmit if input is > 1024 bytes.
 
