@@ -54,7 +54,7 @@ Anti-replay techniques are employed such as:
 
 ## Default AT Settings
 
-| Setting | Location |
+| Settings | Location |
 |---|---|
 | **Spreading Factor**: AT+PARAMETER=8,7,1,8 | include/behaviour_config.inc |
 | **Network ID**: AT+NETWORKID=18 | include/behaviour_config.inc |
@@ -68,6 +68,8 @@ Anti-replay techniques are employed such as:
 **FCC Part 15 note:** Plaintext input is capped at **1024 bytes** to help limit on-air time (dwell/occupancy) when frequency hopping, in an effort to stay within FCC Part 15 expectations.
 
 SIGrypt is designed to **not** transmit if input is > 1024 bytes.
+
+---
 
 ## Regulatory / legality (US-only configuration)
 
