@@ -150,10 +150,10 @@ config_module:
     lea r15, [rdi]
 
 
-    lea rdi, [configuration_prompt]
-    mov rsi, configuration_prompt_len
+    ;lea rdi, [configuration_prompt]        ; Debugging purposes
+    ;mov rsi, configuration_prompt_len
 
-    call SIGout
+    ;call SIGout
 
     xor rbx, rbx
 

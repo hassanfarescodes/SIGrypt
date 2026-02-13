@@ -44,11 +44,13 @@ section .rodata
 section .bss
     reception_buffer            resb reception_buffer_len       ; 45 bytes * 50 frequencies
     reception_response          resb reception_response_len     ; +RCV=<Address>,<Length>,<Data>,<RSSI>,<SNR>\r\n
-    rec_CRC_tag                 resb CRC_len
+    sa_int                      resb 32
     rec_CRC_tag_hex             resb CRC_len * 2
+    rec_CRC_tag                 resb CRC_len
     cipher_IV_length            resq 1
     data_length                 resq 1
-    first_packet_rec            resb 1
+    first_packet_flag           resb 1
+    quit_flag                   resb 1
 
 section .text
     
@@ -65,6 +67,35 @@ section .text
     extern hex_to_bytes
     extern DECRYPT_AES
     global SIGrypt_receive
+
+
+sigreturn_stub:
+    mov rax, SYS_rt_sigreturn
+    syscall
+    ud2
+
+sigint_handler:
+
+    mov byte [rel quit_flag], 1
+    ret
+
+install_signals:
+
+    lea rax, [rel sigint_handler]
+    mov [sa_int], rax
+    mov qword [sa_int + 8], 0X10000000 | 0X04000000 
+    lea rax, [sigreturn_stub]
+    mov qword [sa_int + 16], rax
+    mov qword [sa_int + 24], 0
+
+    mov rax, SYS_rt_sigaction
+    mov rdi, 2
+    lea rsi, [sa_int]
+    xor rdx, rdx
+    mov r10, 8
+    syscall
+
+    ret
 
 
 is_SIGrypt_format:
@@ -220,13 +251,16 @@ listen_LoRa:
     
     call SIGout
 
-    mov byte [first_packet_rec], 0
+    mov byte [first_packet_flag], 0
 
     reset_offset:
     
         xor rbx, rbx
 
     loop_LoRa:
+
+        cmp byte [rel quit_flag], 1
+        je listening_aborted
 
         mov rax, SYS_read
         mov rdi, r12
@@ -257,7 +291,7 @@ listen_LoRa:
 
         ; call SIGout
 
-        mov al, byte [first_packet_rec]
+        mov al, byte [first_packet_flag]
         cmp al, 1
         je post_first_packet
 
@@ -266,7 +300,7 @@ listen_LoRa:
 
         call SIGout
 
-        mov byte [first_packet_rec], 1
+        mov byte [first_packet_flag], 1
         
         post_first_packet:
 
@@ -351,6 +385,10 @@ listen_LoRa:
 
     listening_failed:
         mov rax, -1
+        jmp listening_done
+
+    listening_aborted:
+        mov rax, -2
 
     listening_done:
 
@@ -389,6 +427,7 @@ SIGrypt_receive:
     ;       rax -> 12 on absent encrypted data
     ;       rax -> 13 on decryption failure
     ;       rax -> 14 on timestamp validation failure
+    ;       rax -> 15 on signal installation failure
 
     push rbx
     push rbp
@@ -403,6 +442,13 @@ SIGrypt_receive:
 
     test rax, rax
     js rec_config_failed
+    
+    call install_signals                        ; Not RF, this is a keyboardinterrupt handler
+
+    test rax, rax
+    jnz rec_signal_installation_failed
+    
+    reception_logic_loop:
 
     mov rdi, r13
     mov rsi, r14
@@ -419,11 +465,14 @@ SIGrypt_receive:
 
     test rax, rax
     jnz rec_write_failed
-
+    
     mov rdi, r14
     mov rsi, r13
 
     call listen_LoRa
+
+    cmp rax, -2
+    je rec_destroy_A 
 
     test rax, rax
     jnz reception_failed
@@ -607,6 +656,8 @@ SIGrypt_receive:
         
         call SIGout
 
+        jmp reception_logic_loop
+
   
 rec_destroy_A:
 
@@ -706,4 +757,9 @@ rec_decryption_failed:
 rec_validate_timestamp_failed:
 
     mov rax, 14
+    jmp terminate_reception
+
+rec_signal_installation_failed:
+
+    mov rax, 15
     jmp terminate_reception

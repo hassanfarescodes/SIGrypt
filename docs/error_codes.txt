@@ -17,6 +17,7 @@
         12                  Encrypted Data              *
         13                  Decryption                  *
         14                  Timestamp validation        *
+        15                  Signal installation         *
 
         20                  post_mmap_B                 flow.asm
         21                  post_mmap_A                 *

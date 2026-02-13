@@ -1240,7 +1240,7 @@ START_SIGrypt:
     xor rsi, rsi
     xor rdx, rdx
     xor r10, r10
-    syscall
+    ;syscall
   
     test rax, rax
     ;js flow_ptrace_failed                                     <-------- TODO: Remove after debugging

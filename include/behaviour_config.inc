@@ -44,7 +44,7 @@ section .rodata:
     transmission_prompt         db 10, "Transmission in progress...", 10
     transmission_prompt_len     equ $ - transmission_prompt
 
-    reception_prompt            db 10, "Listening...", 10
+    reception_prompt            db 10, "Listening...        (Ctrl + C to stop)", 10
     reception_prompt_len        equ $ - reception_prompt
 
     reception_first_packet      db 10, "Received first packet! Waiting for 49 others...", 10
