@@ -18,9 +18,9 @@ inputs.txt should contain the following:
 inputs.txt format example:
 
 ----START FILE----
-1
-0
-17
+1<br>
+0<br>
+17<br>
 harmonics feline laziness paycheck swampland steadily bondless flatly legroom purplish paralyze regain spiritism armoire jogging legged landed destruct dictation tubular plated basics unvalued boxy
 ----END FILE----
 
