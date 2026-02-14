@@ -32,4 +32,11 @@ harmonics feline laziness paycheck swampland steadily bondless flatly legroom pu
 
 - **Decryption / Piping:** *( gpg --batch --quiet --no-tty --decrypt inputs.txt.gpg | sed -n '1,4p'; cat ) | script -q -c 'env -i HOME="$HOME" PATH="/usr/bin:/bin" bash -c "set -o pipefail; stty -echo; trap \"stty echo\" EXIT; exec ./build/main"' /dev/null*
 
-### decrypt_and_pipe.sh contains the Decryption / Piping command so you can just run it to decrypt and auto input your transmission options
+---
+
+*decrypt_and_pipe.sh* contains the "Decryption / Piping" command so you can just run it to decrypt and auto input your transmission options
+
+If you plan to use decrypt_and_pipe.sh:
+
+- Place inputs.txt.gpg is in /keymgmt
+- Execute from the root of the repository
