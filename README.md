@@ -71,6 +71,15 @@ SIGrypt is designed to **not** transmit if input is > 1024 bytes.
 
 ---
 
+## PSK Model: What to Share?
+
+- 24 word key
+- Frequency table number
+
+*For tips on storing keys and options, see /keymgmt*
+
+---
+
 ## Regulatory / legality (US-only configuration)
 
 - This project is **configured for the US 902–928 MHz ISM band**.
@@ -83,5 +92,5 @@ SIGrypt is designed to **not** transmit if input is > 1024 bytes.
 
 ## Future Goals
 
-- Maintain the repo and update regularly
 - Increase compatibility to the HackRF One board
+- Maintain the repository and update regularly

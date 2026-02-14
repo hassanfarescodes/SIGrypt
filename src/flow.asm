@@ -1226,6 +1226,7 @@ START_SIGrypt:
     ;       rax -> 36 on frequency selection
     ;       rax -> 37 on key input
     ;       rax -> 38 on key wipe
+    ;       rax -> 39 on buffer wipes
 
     push rbp
     push r12

@@ -40,6 +40,7 @@
         36                  frequency selection         *
         37                  key input                   *
         38                  key wipe                    * 
+        39                  buffer wipes                *
 
         50                  ioctl                       transmit.asm
         51                  module write                *
