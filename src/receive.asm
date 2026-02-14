@@ -32,14 +32,29 @@ extern frequency_buffer_len
 
 section .rodata
 
-    received_stuff              db "Received"
-    received_stuff_len          equ $ - received_stuff
-    received_stuff2             db "somethin"
+    open_sb                     db 27, "[1m", "[ "
+    open_sb_len                 equ $ - open_sb
+
+    close_sb                    db " ]", 27, "[0m"
+    close_sb_len                equ $ - close_sb
+
+    time_AM                     db " AM"
+    time_AM_len                 equ $ - time_AM
+
+    time_PM                     db " PM"
+    time_PM_len                 equ $ - time_PM
+
+    time_universal_zone         db " - UTC"
+    time_universal_zone_len     equ $ - time_universal_zone
+
+    time_format_seperator       db " : "
+    time_format_seperator_len   equ $ - time_format_seperator
 
     reception_response_len      equ 256
     reception_guard             equ reception_response_len - 32
 
     reception_buffer_len        equ 2250
+
 
 section .bss
     reception_buffer            resb reception_buffer_len       ; 45 bytes * 50 frequencies
@@ -47,9 +62,19 @@ section .bss
     sa_int                      resb 32
     rec_CRC_tag_hex             resb CRC_len * 2
     rec_CRC_tag                 resb CRC_len
+    old_message_tracker         resq 1
+    old_message_ID_1            resb IV_len
+    old_message_ID_2            resb IV_len
     cipher_IV_length            resq 1
     data_length                 resq 1
+    format_time_hours           resq 1
+    format_time_minutes         resq 1
+    format_time_seconds         resq 1
+    format_time_hours_len       resq 1
+    format_time_minutes_len     resq 1
+    format_time_seconds_len     resq 1
     first_packet_flag           resb 1
+    PM_flag                     resb 1
     quit_flag                   resb 1
 
 section .text
@@ -277,11 +302,10 @@ listen_LoRa:
         ; Protects against buffer overflows
 
         cmp rbx, reception_guard
-        jge reset_offset
+        ja reset_offset
 
         cmp byte [reception_response + rbx - 1], 10
         jne loop_LoRa
-
 
         cmp dword [reception_response], 0X5643522B                  ; == "+RCV" ?
         jne reset_offset
@@ -369,6 +393,9 @@ listen_LoRa:
             mov rdx, [frequency_buffer_len]
             sub rdx, rbx
             syscall
+      
+            test rax, rax
+            jle listening_failed
 
             add rbx, rax
             cmp rbx, [frequency_buffer_len]
@@ -418,9 +445,9 @@ SIGrypt_receive:
     ;       rax -> 3 on config failure
     ;       rax -> 4 on write failure
     ;       rax -> 5 on non SIGrypt format
-    ;       rax -> 6 on data block alloc failure
+    ;       rax -> 6 on SIGout failure
     ;       rax -> 7 on reception failure
-    ;       rax -> 8 on malock failure
+    ;       rax -> 8 on int_to_ascii failure
     ;       rax -> 9 on hex_to_bytes failure
     ;       rax -> 10 on CRC validation failure
     ;       rax -> 11 on hmac validation failure
@@ -428,6 +455,7 @@ SIGrypt_receive:
     ;       rax -> 13 on decryption failure
     ;       rax -> 14 on timestamp validation failure
     ;       rax -> 15 on signal installation failure
+    ;       rax -> 16 on message ID validation
 
     push rbx
     push rbp
@@ -450,110 +478,110 @@ SIGrypt_receive:
     
     reception_logic_loop:
 
-    mov rdi, r13
-    mov rsi, r14
+        mov rdi, r13
+        mov rsi, r14
 
-    call config_module
+        call config_module
 
-    test rax, rax
-    js rec_config_failed
+        test rax, rax
+        js rec_config_failed
 
-    lea rdi, [cmd_Address_R]
-    mov rsi, cmd_Address_R_len
+        lea rdi, [cmd_Address_R]
+        mov rsi, cmd_Address_R_len
 
-    call write_loop
+        call write_loop
 
-    test rax, rax
-    jnz rec_write_failed
-    
-    mov rdi, r14
-    mov rsi, r13
-
-    call listen_LoRa
-
-    cmp rax, -2
-    je rec_destroy_A 
-
-    test rax, rax
-    jnz reception_failed
-    
-    lea rdi, [reception_buffer]
-    mov rsi, reception_buffer_len
-
-    call strip_padding    
-
-    test rax, rax
-    js rec_strip_failed
-
-    mov qword [data_length], rax
-
-    lea rdi, [reception_buffer]
-    mov rsi, [data_length]
-
-    call is_SIGrypt_format
-
-    test rax, rax
-    js SIGrypt_format_invalid
-
-    mov rax, [data_length]
-    sub rax, CRC_len * 2                    ; rax now is length at CRC tag
-    lea rsi, [reception_buffer]
-    add rsi, rax
-    lea rdi, [rec_CRC_tag_hex]
-    mov rcx, CRC_len * 2
-    rep movsb
-
-    lea rdi, [rec_CRC_tag_hex]
-    mov rsi, CRC_len * 2
-    lea rdx, [rec_CRC_tag]
-    
-    call hex_to_bytes
-
-    test rax, rax
-    js rec_hex2bytes_failed
-
-    lea rdi, [reception_buffer]
-    mov rsi, [data_length]
-    sub rsi, CRC_len * 2
-    lea rdx, [rec_CRC_tag]
-
-    call SIGrypt_CRC_Validate
-
-    test rax, rax
-    jnz rec_CRC_validation_failed
-
-    lea rsi, [reception_buffer]
-    add rsi, [data_length]
-    sub rsi, (CRC_len * 2 + HMAC_len * 2)
-    lea rdi, [HMAC_hex]
-    mov rcx, HMAC_len * 2
-    rep movsb
-
-    lea rdi, [HMAC_hex]
-    mov rsi, HMAC_len * 2
-    lea rdx, [HMAC]
-    
-    call hex_to_bytes
-
-    test rax, rax
-    js rec_hex2bytes_failed
-
-    lea rdi, [reception_buffer]
-    mov rsi, [data_length]
-    sub rsi, (CRC_len * 2 + HMAC_len * 2)
-    lea rdx, [HMAC_key]
-    mov rcx, HMAC_len
-    lea r8, [HMAC]
-
-    call hmac_validate
-
-    test rax, rax
-    jnz rec_HMAC_validation_failed
+        test rax, rax
+        jnz rec_write_failed
         
+        mov rdi, r14
+        mov rsi, r13
 
-    lea rdi, [reception_buffer]
-    lea rsi, [reception_buffer]
-    add rsi, [data_length]
+        call listen_LoRa
+
+        cmp rax, -2
+        je reception_success 
+
+        test rax, rax
+        jnz reception_failed
+        
+        lea rdi, [reception_buffer]
+        mov rsi, reception_buffer_len
+
+        call strip_padding    
+
+        test rax, rax
+        js rec_strip_failed
+
+        mov qword [data_length], rax
+
+        lea rdi, [reception_buffer]
+        mov rsi, [data_length]
+
+        call is_SIGrypt_format
+
+        test rax, rax
+        js SIGrypt_format_invalid
+
+        mov rax, [data_length]
+        sub rax, CRC_len * 2                    ; rax now is length at CRC tag
+        lea rsi, [reception_buffer]
+        add rsi, rax
+        lea rdi, [rec_CRC_tag_hex]
+        mov rcx, CRC_len * 2
+        rep movsb
+
+        lea rdi, [rec_CRC_tag_hex]
+        mov rsi, CRC_len * 2
+        lea rdx, [rec_CRC_tag]
+        
+        call hex_to_bytes
+
+        test rax, rax
+        js rec_hex2bytes_failed
+
+        lea rdi, [reception_buffer]
+        mov rsi, [data_length]
+        sub rsi, CRC_len * 2
+        lea rdx, [rec_CRC_tag]
+
+        call SIGrypt_CRC_Validate
+
+        test rax, rax
+        jnz rec_CRC_validation_failed
+
+        lea rsi, [reception_buffer]
+        add rsi, [data_length]
+        sub rsi, (CRC_len * 2 + HMAC_len * 2)
+        lea rdi, [HMAC_hex]
+        mov rcx, HMAC_len * 2
+        rep movsb
+
+        lea rdi, [HMAC_hex]
+        mov rsi, HMAC_len * 2
+        lea rdx, [HMAC]
+        
+        call hex_to_bytes
+
+        test rax, rax
+        js rec_hex2bytes_failed
+
+        lea rdi, [reception_buffer]
+        mov rsi, [data_length]
+        sub rsi, (CRC_len * 2 + HMAC_len * 2)
+        lea rdx, [HMAC_key]
+        mov rcx, HMAC_len
+        lea r8, [HMAC]
+
+        call hmac_validate
+
+        test rax, rax
+        jnz rec_HMAC_validation_failed
+            
+
+        lea rdi, [reception_buffer]
+        lea rsi, [reception_buffer]
+        add rsi, [data_length]
 
     find_encrypted_data:
 
@@ -575,7 +603,7 @@ SIGrypt_receive:
 
     rec_validate_timestamp:
 
-        mov rax, [data_length]      ; Length(timestamp) = End Address of Data - Start address of timestamp - HMAC length - IV length
+        mov rax, [data_length]      ; Length(timestamp) = End Address of Data - Start address of timestamp - HMAC length - CRC length
         lea rsi, [reception_buffer + rax]
 
         sub rsi, rdi 
@@ -592,11 +620,15 @@ SIGrypt_receive:
         xor rdi, rdi
         syscall
 
-        sub rax, r15
+        sub rax, r15                    ; Calculates delay (Includes propagation, transmission, and processing delay)
+  
+        test rax, rax
+        js rec_validate_timestamp_failed
 
         cmp rax, 30
-
         jg rec_validate_timestamp_failed 
+
+        add r15, rax                    ; r15 now holds current time (Transmission time + Reception Delay = Current time)
 
     post_timestamp_validation:
 
@@ -634,46 +666,226 @@ SIGrypt_receive:
         test rax, rax
         js rec_hex2bytes_failed
 
-        lea rdi, [r12]
+        mov rax, [IV]
+        mov rdx, [IV + 8]
 
-        call DECRYPT_AES
+    compare_ID_1:
+
+        cmp rax, [old_message_ID_1]
+        jne compare_ID_2
+      
+        cmp rdx, [old_message_ID_1 + 8]
+        je rec_ID_validation_failed
+
+    compare_ID_2:
+
+        cmp rax, [old_message_ID_2]
+        jne post_ID_validation
+      
+        cmp rdx, [old_message_ID_2 + 8]
+        je rec_ID_validation_failed
+
+    post_ID_validation:
+
+        inc qword [old_message_tracker]
+  
+        test qword [old_message_tracker], 1
+        jz rec_ID_2_write 
+
+        rec_ID_1_write:
+
+            lea rsi, [IV]
+            lea rdi, [old_message_ID_1]
+            mov rcx, IV_len
+            rep movsb
+            jmp post_message_ID_validation
+    
+        rec_ID_2_write:
+
+            lea rsi, [IV]
+            lea rdi, [old_message_ID_2]
+            mov rcx, IV_len
+            rep movsb
+
+        post_message_ID_validation:
+
+            lea rdi, [r12]
+
+            call DECRYPT_AES
+
+            test rax, rax
+            jnz rec_decryption_failed
+
+    format_current_time:
+
+        ; Seconds
+
+        mov rax, r15
+        xor rdx, rdx
+        mov rcx, 60
+        div rcx
+
+        mov r15, rax
+
+        mov rdi, rdx
+        lea rsi, [format_time_seconds]
+
+        call int_to_ascii
 
         test rax, rax
-        jnz rec_decryption_failed
+        js rec_int2ascii_failed
+
+        mov [format_time_seconds_len], rax
+
+        ; Minutes
+
+        mov rax, r15
+        xor rdx, rdx
+        mov rcx, 60
+        div rcx
+
+        mov r15, rax
+
+        mov rdi, rdx
+        lea rsi, [format_time_minutes]
+
+        call int_to_ascii
+        
+        test rax, rax
+        js rec_int2ascii_failed 
+        
+        mov [format_time_minutes_len], rax
+
+        mov byte [PM_flag], 0
+
+        ; Hours
+
+        mov rax, r15
+        xor rdx, rdx
+        mov rcx, 24
+        div rcx
+
+        cmp rdx, 12
+        setae byte [PM_flag]
+
+        ; Convert military time to 12-hour time
+       
+        ; 12-hour time = ((military_time + 11) % 12) + 1     UTC
+
+    military_time_conversion:
+
+        add rdx, 11
+      
+        mov rax, rdx
+        xor rdx, rdx
+        mov rcx, 12
+        div rcx
+
+        add rdx, 1
+
+        mov rdi, rdx
+        lea rsi, [format_time_hours]
+
+        call int_to_ascii
+
+        test rax, rax
+        js rec_int2ascii_failed
+
+        mov [format_time_hours_len], rax
+
+        lea rdi, [newline]
+        mov rsi, 1
+      
+        call SIGout
+
+        lea rdi, [open_sb]
+        mov rsi, open_sb_len
+
+        call SIGout
+
+        lea rdi, [format_time_hours]
+        mov rsi, [format_time_hours_len]
+
+        call SIGout
+
+        lea rdi, [time_format_seperator]
+        mov rsi, time_format_seperator_len
+
+        call SIGout
+
+        lea rdi, [format_time_minutes]
+        mov rsi, [format_time_minutes_len]
+
+        call SIGout
+
+        lea rdi, [time_format_seperator]
+        mov rsi, time_format_seperator_len
+
+        call SIGout
+    
+        lea rdi, [format_time_seconds]
+        mov rsi, [format_time_seconds_len]
+
+        call SIGout
+
+        cmp byte [PM_flag], 1
+        je set_PM
+
+        set_AM:
+
+            lea rdi, [time_AM]
+            mov rsi, time_AM_len
+
+            call SIGout
+
+            jmp end_time_format
+
+        set_PM:
+
+            lea rdi, [time_PM]
+            mov rsi, time_PM_len
+
+            call SIGout
+
+    end_time_format:
+
+        lea rdi, [close_sb]
+        mov rsi, close_sb_len
+
+        call SIGout
+
+        lea rdi, [time_universal_zone]
+        mov rsi, time_universal_zone_len
+        
+        call SIGout
+      
+    display_validated_content:
 
         lea rdi, [rec_message_prompt]
         mov rsi, rec_message_prompt_len
 
         call SIGout
 
+        test rax, rax
+        jnz rec_SIGout_failed
+
         lea rdi, [decrypted]
         mov rsi, [plaintext_len]
 
         call SIGout
 
+        test rax, rax
+        jnz rec_SIGout_failed
+
         lea rdi, [newline]
         mov rsi, 1
         
         call SIGout
+      
+        test rax, rax
+        jnz rec_SIGout_failed
 
         jmp reception_logic_loop
-
-  
-rec_destroy_A:
-
-    mov rax, SYS_munlock
-    lea rdi, [r12]
-    mov rsi, block_size
-    syscall 
-
-    lea rdi, [r12]
-    mov rsi, block_size
-
-    call destroy_block
-
-    jnz rec_destruction_failure
-
-    ; if recv has at 45 bytes, jump to the next frequency
 
 reception_success:
    
@@ -714,7 +926,7 @@ SIGrypt_format_invalid:
     mov rax, 5
     jmp terminate_reception
 
-rec_data_block_alloc_failed:
+rec_SIGout_failed:
 
     mov rax, 6
     jmp terminate_reception
@@ -724,7 +936,7 @@ reception_failed:
     mov rax, 7
     jmp terminate_reception
 
-rec_mlock_failed:
+rec_int2ascii_failed:
 
     mov rax, 8
     jmp terminate_reception
@@ -762,4 +974,9 @@ rec_validate_timestamp_failed:
 rec_signal_installation_failed:
 
     mov rax, 15
+    jmp terminate_reception
+
+rec_ID_validation_failed:
+
+    mov rax, 16
     jmp terminate_reception

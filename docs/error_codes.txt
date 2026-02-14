@@ -8,9 +8,9 @@
         3                   module config               *
         4                   module write                *
         5                   SIGrypt format              *
-        6                   data block alloc            *
+        6                   SIGout                      *
         7                   general reception           *
-        8                   mlock                       *
+        8                   int_to_ascii                *
         9                   hex_to_bytes                *
         10                  CRC validation              *
         11                  HMAC validation             *
@@ -18,6 +18,8 @@
         13                  Decryption                  *
         14                  Timestamp validation        *
         15                  Signal installation         *
+        16                  Message ID validation       *
+
 
         20                  post_mmap_B                 flow.asm
         21                  post_mmap_A                 *

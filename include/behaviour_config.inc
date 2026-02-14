@@ -41,6 +41,9 @@ section .rodata:
     configuration_prompt        db 10, "Configuring and tuning module...", 10
     configuration_prompt_len    equ $ - configuration_prompt
 
+    transmission_success_p      db 10, "Transmissions succeeded!", 10
+    transmission_success_p_len equ $ - transmission_success_p
+
     transmission_prompt         db 10, "Transmission in progress...", 10
     transmission_prompt_len     equ $ - transmission_prompt
 
@@ -56,7 +59,7 @@ section .rodata:
     reception_complete_HMAC     db 10, "Validating HMAC..."
     reception_complete_HMAC_len equ $ - reception_complete_HMAC
 
-    rec_message_prompt          db 10, "Received Message: "
+    rec_message_prompt          db 10,  0x1b, '[32m', "Received Message: " , 0x1b, '[0m'
     rec_message_prompt_len      equ $ - rec_message_prompt
     
     time_sleep                  dq 0, 20000000                                  ; Time delay between each frequency change (20 ms)

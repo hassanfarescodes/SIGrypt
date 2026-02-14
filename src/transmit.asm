@@ -324,7 +324,7 @@ write_loop:
         syscall
 
         test rax, rax
-        js write_failed
+        jle write_failed
 
         add rbx, rax
 
@@ -506,6 +506,9 @@ start_transmissions:
 
         call write_loop
 
+        test rax, rax
+        jnz trans_write_failed
+
         ; Wait 20 ms
 
         mov rax, SYS_nanosleep
@@ -538,6 +541,9 @@ start_transmissions:
 
         call write_loop 
 
+        test rax, rax
+        jnz trans_write_failed
+
         inc rbp
         cmp rbp, FREQ_COUNT                     ; "FREQ_COUNT" in
                                                 ; ../include/frequency_variations.inc
@@ -548,17 +554,14 @@ start_transmissions:
     
 transmission_succeeded:
 
+    lea rdi, [transmission_success_p]
+    mov rsi, transmission_success_p_len
+
+    call SIGout
+
     xor rax, rax
 
 transmission_terminate:
-
-    mov rbx, rax
-
-    mov rax, SYS_close
-    mov rdi, r14
-    syscall
-
-    mov rax, rbx
 
     add rsp, 8
 

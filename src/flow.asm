@@ -156,6 +156,10 @@ section .bss
     Freq_num            resq    1
     master_key_len      resq    1
     module_FD           resq    1
+    keyfile_FD          resq    1
+    response_code       resq    1
+    masters_lock_flag   resq    1
+    initial_key_flag    resq    1
 
 section .text
 
@@ -243,6 +247,8 @@ SIGrypt_mlock_masters:
     ;       rax -> -1 on failure
 
     push rbx
+    
+    mov qword [masters_lock_flag], 1
 
     xor rbx, rbx
 
@@ -288,7 +294,7 @@ SIGrypt_mlock_masters:
 SIGrypt_munlock_masters:
 
     ; Purpose:
-    ;       mlocks master key buffers
+    ;       munlocks master key buffers
     ;
     ; Args:
     ;       None
@@ -662,15 +668,15 @@ ascii_to_int:
 
     int_cast_loop:
 
+        cmp r8, rsi
+        jge casted_int
+
         mov cl, byte [rdi+r8]
 
         sub cl, '0'
 
         cmp cl, 9
         ja casted_int
-
-        cmp r8, rsi
-        jge casted_int
 
         movzx rcx, cl
 
@@ -953,16 +959,7 @@ SIGrypt_load_key_file:
     ; Purpose:
     ;       Creates and prints 24 word Sigrypt key
     ;
-    ; Args:
-    ;       None
-    ;
-    ; Returns:
-    ;       rax -> (terminates) with 0 success code
-    ;       rax -> (terminates) with 1 failure code
 
-
-    push rbp
-    
     mov rax, SYS_mlock
     lea rdi, [initial_key]
     mov rsi, 256
@@ -970,6 +967,8 @@ SIGrypt_load_key_file:
 
     test rax, rax
     js flow_mlock_failed
+    
+    mov qword [initial_key_flag], 1                     ; Validate it early for safe and ensured destruction
 
     mov rax, SYS_openat
     mov rdi, -100
@@ -981,10 +980,10 @@ SIGrypt_load_key_file:
     test rax, rax
     js flow_openat_failed
 
-    mov r15, rax
+    mov [keyfile_FD], rax
 
     mov rax, SYS_fstat
-    mov rdi, r15
+    mov rdi, [keyfile_FD]
     lea rsi, [fstat_buf]
     syscall
 
@@ -998,7 +997,7 @@ SIGrypt_load_key_file:
     mov rsi, [fstat_buf + 48]
     mov rdx, 1
     mov r10, 2
-    mov r8, r15
+    mov r8, [keyfile_FD]
     xor r9, r9
     syscall
     
@@ -1008,8 +1007,10 @@ SIGrypt_load_key_file:
     mov r14, rax
 
     mov rax, SYS_close
-    mov rdi, r15
+    mov rdi, [keyfile_FD]
     syscall
+
+    mov qword [keyfile_FD], -1
 
     xor r11, r11
     lea r10, [initial_key]
@@ -1124,7 +1125,9 @@ SIGrypt_load_key_file:
                 mov rsi, [fstat_buf + 48]
                 syscall
 
-            pop rbp
+            mov qword [response_code], 0
+            mov qword [initial_key_flag], -1
+
             jmp flow_terminate 
 
 
@@ -1235,6 +1238,12 @@ START_SIGrypt:
 
     ; Check if binary is getting ptraced
 
+    mov qword [module_FD], -1                                       ; Invalidate the module_FD for handling close logic at termination
+    mov qword [keyfile_FD], -1                                      ; Invalidate the keyfile_FD for handling close logic at termination
+    mov qword [masters_lock_flag], -1                               ; Invalidate the masters_lock_flag for handling wipe and munlock logic at termination
+    mov qword [initial_key_flag], -1                                ; Invalidate the initial_key_flag for handling wipe and munlock logic at termination
+    mov qword [response_code], 0
+
     mov rax, SYS_ptrace
     mov rdi, 0
     xor rsi, rsi
@@ -1251,7 +1260,7 @@ START_SIGrypt:
 
     test rax, rax
     jz flow_RDRAND_failed
-
+    
     mov rax, SYS_setrlimit
     mov rdi, 4
     lea rsi, [rlim_core_zero]
@@ -1287,9 +1296,11 @@ START_SIGrypt:
     ; Generate key
     cmp bl, '0'
     je SIGrypt_load_key_file
+    jl flow_terminate
 
     cmp bl, '3'
-    je flow_terminate
+    jge flow_terminate
+
 
     ; Send a message
   
@@ -1499,8 +1510,10 @@ reception_phase:
 
     ; SIGrypt_receive return code is
     ; carried into "terminate"
-    
-    jmp flow_terminate
+
+    mov qword [response_code], rax
+
+    jmp flow_destroy_A
 
 transmission_phase:
 
@@ -1638,12 +1651,6 @@ transmission_phase:
     mov rsi, 1
     call SIGout
 
-    lea rdi, [CRC_tag_hex]
-    mov rsi, CRC_len
-    shl rsi, 1
-    
-    call SIGout
-
     ; Wipe sensitive data before sharing it
     ; with the transmission function
 
@@ -1675,8 +1682,7 @@ transmission_phase:
     ; return code is carried into
     ; the "terminate" function
 
-    test rax, rax
-    jnz flow_terminate
+    mov qword [response_code], rax
 
 flow_destroy_A:
 
@@ -1701,19 +1707,77 @@ destroy_buffers:
     
     call SIGrypt_munlock_masters
 
-    xor rax, rax
+    mov qword [masters_lock_flag], -1
+
+close_module:
+
+    mov rax, SYS_close
+    mov rdi, [module_FD]
+    syscall
+    
+    jmp flow_quit
 
 flow_terminate:
 
-    add rsp, 8
+    mov rdi, [initial_key_flag]
+    cmp rdi, 1
+    jne check_masters_lock
 
+    lea rdi, [initial_key]
+    mov rsi, 256
+
+    call zero_fill
+
+    mov rax, SYS_munlock
+    lea rdi, [initial_key]
+    mov rsi, 256
+    syscall
+
+check_masters_lock:
+
+    mov rdi, [masters_lock_flag]
+    cmp rdi, 1
+    jne check_module_file
+
+    call SIGrypt_wipe_buffers
+
+    call SIGrypt_munlock_masters
+
+check_module_file:
+
+    mov rdi, [module_FD]
+    cmp rdi, -1
+    je check_key_file
+
+    mov rax, SYS_close
+    mov rdi, [module_FD]
+    syscall
+
+    jmp flow_quit
+
+check_key_file:
+
+    mov rdi, [keyfile_FD]
+    cmp rdi, -1
+    je flow_quit
+
+    mov rax, SYS_close
+    mov rdi, [keyfile_FD]
+    syscall
+
+flow_quit:
+    
+    mov rax, qword [response_code]
+
+    add rsp, 8
+    
     pop rbx
     pop r15
     pop r14
     pop r13
     pop r12
     pop rbp
-
+    
     ret
 
 flow_failed_post_mmap_B:
@@ -1723,9 +1787,7 @@ flow_failed_post_mmap_B:
     mov rsi, [fstat_buf + 48]
     syscall
 
-    pop rbp
-
-    mov rax, 20
+    mov qword [response_code], 20
 
     jmp flow_terminate
 
@@ -1739,7 +1801,7 @@ flow_failed_post_mmap_A:
     test rax, rax
     jnz mmap_A_destruction_failed
 
-    mov rax, 21
+    mov qword [response_code], 21
     
     jmp flow_terminate
 
@@ -1750,68 +1812,68 @@ flow_failed_post_mmap_A:
         
         call SIGout
 
-        mov rax, 22
+        mov qword [response_code], 22
 
         jmp flow_terminate
 
 flow_mlock_failed:
 
-    mov rax, 23
+    mov qword [response_code], 23
     jmp flow_terminate
 
 flow_openat_failed:
     
-    mov rax, 24
+    mov qword [response_code], 24
     jmp flow_terminate
 
 flow_fstat_failed:
 
-    mov rax, 25
+    mov qword [response_code], 25
     jmp flow_terminate
 
 flow_mmap_failed:
 
-    mov rax, 26
+    mov qword [response_code], 26
     jmp flow_terminate
 
 flow_ptrace_failed:
 
-    mov rax, 27
+    mov qword [response_code], 27
     jmp flow_terminate
 
 flow_RDRAND_failed:
 
-    mov rax, 28
+    mov qword [response_code], 28
     jmp flow_terminate
    
 flow_setrlimit_failed:
 
-    mov rax, 29
+    mov qword [response_code], 29
     jmp flow_terminate
 
 flow_prctl_failed:
 
-    mov rax, 30
+    mov qword [response_code], 30
     jmp flow_terminate
 
 flow_entries_failed:
     
-    mov rax, 31
+    mov qword [response_code], 31
     jmp flow_terminate
 
 flow_SIGin_failed:
 
-    mov rax, 32
+    mov qword [response_code], 32
     jmp flow_terminate
 
 flow_ascii2int_failed:
 
-    mov rax, 33
+    mov qword [response_code], 33
     jmp flow_terminate
 
 flow_int2ascii_failed:
 
-    mov rax, 34
+    mov qword [response_code], 34
     jmp flow_terminate
 
 flow_no_such_module:
@@ -1821,7 +1883,7 @@ flow_no_such_module:
     
     call SIGout
 
-    mov rax, 35
+    mov qword [response_code], 35
 
     jmp flow_terminate
 
@@ -1832,7 +1894,7 @@ flow_frequency_error:
 
     call SIGout
 
-    mov rax, 36
+    mov qword [response_code], 36
 
     jmp flow_terminate
 
@@ -1843,20 +1905,23 @@ flow_key_input_failed:
       
     call SIGout
 
-    mov rax, 37
+    mov qword [response_code], 37
 
     jmp flow_failed_post_mmap_A
 
 flow_failed_initial_key_wipe:
+
+    mov rax, SYS_munmap
+    mov rdi, r14
+    mov rsi, [fstat_buf + 48]
+    syscall
 
     lea rdi, [error_init]
     mov rsi, error_init_len
 
     call SIGout
 
-    pop rbp
-
-    mov rax, 38
+    mov qword [response_code], 38
 
     jmp flow_terminate
 
@@ -1867,8 +1932,9 @@ flow_failed_SIGrypt_buffer_wipes:
     mov rsi, error_wipes_len
 
     call SIGout
-    
-    jmp flow_failed_post_mmap_A
+    mov qword [response_code], 39  
+
+    jmp flow_terminate
 
 input_max_exceeded:
 
