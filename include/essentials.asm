@@ -11,6 +11,7 @@ global sys_exit
 section .text
 
 sys_write:
+
     ; Purpose:
     ;       Outputs data; IO function
     ;
