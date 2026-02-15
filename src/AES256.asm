@@ -2,7 +2,7 @@
 ; File: AES256.asm
 ; Author: Hassan Fares
 ;
-; Description:  Encrypts plaintext using
+; Description:  Encrypts / Decrypts using
 ;               AES256-CTR 
 ;
 ; Assembler: NASM
