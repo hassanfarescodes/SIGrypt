@@ -1,7 +1,6 @@
 %ifndef __FREQUENCY_VARIATIONS_INC_
 %define __FREQUENCY_VARIATIONS_INC__
 
-
 section .rodata
 align 16
 
