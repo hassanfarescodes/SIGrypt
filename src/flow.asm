@@ -19,7 +19,6 @@ DEFAULT REL
 %include "../include/data_block.inc"        ; See "Data Block Memory Layout" below for
                                             ; more details!
 
-
 ; =================================================================
 ;           !   NOTE: FREQUENCIES ARE BASED IN THE US   !
 ; =================================================================
@@ -595,7 +594,6 @@ string_strip:
         inc rdi                 ; Accomadate loop structure
         mov r11, rdi            ; Address of the end of whitespace-free
 
-
     strip_logic: 
         
         lea rsi, [r10]
@@ -609,7 +607,6 @@ string_strip:
 
         rep movsb
     
-
     mov rax, r8
     ret
 
@@ -648,6 +645,7 @@ count_spaces:
         jmp count_spaces_loop
         
     count_spaces_done:
+
         ret
     
 
@@ -765,6 +763,7 @@ int_to_ascii:
         mov rax, -1
         ret
 
+
 SIGrypt_locate_frequency_variation:
 
     ; Purpose:
@@ -784,6 +783,7 @@ SIGrypt_locate_frequency_variation:
     mov rax, [rsi + rdi * 8]
 
     ret
+
 
 secure_index:
     ; Purpose:
@@ -823,6 +823,7 @@ secure_index:
     pop rbx
 
     ret
+
 
 hex_to_bytes:
 
@@ -896,8 +897,10 @@ hex_to_bytes:
         ret
     
     byte_conversion_failed:
+
         mov rax, -1
         ret
+
 
 bytes_to_hex:
 
@@ -953,6 +956,7 @@ bytes_to_hex:
         shl rax, 1
 
         ret
+
 
 SIGrypt_load_key_file:
 
@@ -1084,7 +1088,6 @@ SIGrypt_load_key_file:
                 cmp rsi, rcx
                 jb loop_key_file
 
-
         post_key_gen:
 
             mov byte [r10], 10
@@ -1194,6 +1197,7 @@ randomize:
     fill_fail:
         mov rax, 1
         ret
+
 
 START_SIGrypt:
 
@@ -1502,6 +1506,7 @@ flow_post_inputs:
     cmp bl, '1'
     je transmission_phase    
 
+
 reception_phase:
 
     mov rdi, [module_FD]
@@ -1510,11 +1515,12 @@ reception_phase:
     call SIGrypt_receive
 
     ; SIGrypt_receive return code is
-    ; carried into "terminate"
+    ; carried into "response_code"
 
     mov qword [response_code], rax
 
     jmp flow_destroy_A
+
 
 transmission_phase:
 
@@ -1685,6 +1691,7 @@ transmission_phase:
 
     mov qword [response_code], rax
 
+
 flow_destroy_A:
 
     mov rdi, r12
@@ -1700,6 +1707,7 @@ flow_destroy_A:
     
     call SIGout
 
+
 destroy_buffers:
     call SIGrypt_wipe_buffers
 
@@ -1710,6 +1718,7 @@ destroy_buffers:
 
     mov qword [masters_lock_flag], -1
 
+
 close_module:
 
     mov rax, SYS_close
@@ -1717,6 +1726,7 @@ close_module:
     syscall
     
     jmp flow_quit
+
 
 flow_terminate:
 
@@ -1734,6 +1744,7 @@ flow_terminate:
     mov rsi, 256
     syscall
 
+
 check_masters_lock:
 
     mov rdi, [masters_lock_flag]
@@ -1743,6 +1754,7 @@ check_masters_lock:
     call SIGrypt_wipe_buffers
 
     call SIGrypt_munlock_masters
+
 
 check_module_file:
 
@@ -1756,6 +1768,7 @@ check_module_file:
 
     jmp flow_quit
 
+
 check_key_file:
 
     mov rdi, [keyfile_FD]
@@ -1765,6 +1778,7 @@ check_key_file:
     mov rax, SYS_close
     mov rdi, [keyfile_FD]
     syscall
+
 
 flow_quit:
     
@@ -1781,6 +1795,7 @@ flow_quit:
     
     ret
 
+
 flow_failed_post_mmap_B:
 
     mov rax, SYS_munmap
@@ -1791,6 +1806,7 @@ flow_failed_post_mmap_B:
     mov qword [response_code], 20
 
     jmp flow_terminate
+
 
 flow_failed_post_mmap_A:
 
@@ -1817,65 +1833,78 @@ flow_failed_post_mmap_A:
 
         jmp flow_terminate
 
+
 flow_mlock_failed:
 
     mov qword [response_code], 23
     jmp flow_terminate
+
 
 flow_openat_failed:
     
     mov qword [response_code], 24
     jmp flow_terminate
 
+
 flow_fstat_failed:
 
     mov qword [response_code], 25
     jmp flow_terminate
+
 
 flow_mmap_failed:
 
     mov qword [response_code], 26
     jmp flow_terminate
 
+
 flow_ptrace_failed:
 
     mov qword [response_code], 27
     jmp flow_terminate
+
 
 flow_RDRAND_failed:
 
     mov qword [response_code], 28
     jmp flow_terminate
    
+
 flow_setrlimit_failed:
 
     mov qword [response_code], 29
     jmp flow_terminate
+
 
 flow_prctl_failed:
 
     mov qword [response_code], 30
     jmp flow_terminate
 
+
 flow_entries_failed:
     
     mov qword [response_code], 31
     jmp flow_terminate
+
 
 flow_SIGin_failed:
 
     mov qword [response_code], 32
     jmp flow_terminate
 
+
 flow_ascii2int_failed:
 
     mov qword [response_code], 33
     jmp flow_terminate
 
+
 flow_int2ascii_failed:
 
     mov qword [response_code], 34
     jmp flow_terminate
+
 
 flow_no_such_module:
     
@@ -1888,6 +1917,7 @@ flow_no_such_module:
 
     jmp flow_terminate
 
+
 flow_frequency_error:
     
     lea rdi, [Freq_error]
@@ -1899,6 +1929,7 @@ flow_frequency_error:
 
     jmp flow_terminate
 
+
 flow_key_input_failed:
 
     lea rdi, [Crit_prompt]
@@ -1909,6 +1940,7 @@ flow_key_input_failed:
     mov qword [response_code], 37
 
     jmp flow_failed_post_mmap_A
+
 
 flow_failed_initial_key_wipe:
 
@@ -1936,6 +1968,7 @@ flow_failed_SIGrypt_buffer_wipes:
     mov qword [response_code], 39  
 
     jmp flow_terminate
+
 
 input_max_exceeded:
 

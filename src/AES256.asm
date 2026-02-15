@@ -11,6 +11,7 @@
 
 
 ; Passed official NIST SP 800-38A CTR and IETF RFC3686 CTR official test vectors
+; ------------------------------------------------------------------------------
 
 BITS 64
 DEFAULT REL
@@ -83,6 +84,7 @@ global DECRYPT_AES
 
 %endmacro
 
+
 expand_keys:
 
     push rbx
@@ -144,6 +146,7 @@ inc_IV:
     
     ret
 
+
 overflowed_IV:
 
     mov rax, 1
@@ -191,6 +194,7 @@ ENCRYPT_AES:
     mov rax, 2
     ret
 
+
 compatible:
 
     call expand_keys
@@ -201,6 +205,7 @@ compatible:
     lea rsi, [plaintext]
     lea rdi, [ciphertext]
     mov rbx, qword [plaintext_len]
+
 
 encrypt:
     cmp rbx, 16
@@ -221,6 +226,7 @@ encrypt:
     jnz failed
     jmp encrypt
 
+
 tail:
     
     test rbx, rbx
@@ -231,6 +237,7 @@ tail:
     movdqu [key_schedule], xmm0
 
     xor r8, r8
+
 
 encrypt_tail:
     
@@ -281,6 +288,7 @@ DECRYPT_AES:
 
     jmp encrypt                             ; AES-CTR encryption is inverse to decryption, "encrypt" again to decrypt due to XOR nature
 
+
 encrypted:
   
     pop rbx
@@ -289,6 +297,7 @@ encrypted:
 
     xor rax, rax
     ret
+
 
 failed:
 

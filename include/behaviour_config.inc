@@ -44,10 +44,10 @@ section .rodata:
     transmission_success_p      db 10, "Transmissions succeeded!", 10
     transmission_success_p_len equ $ - transmission_success_p
 
-    transmission_prompt         db 10, "Transmission in progress...", 10
+    transmission_prompt         db 10, "Transmissions in progress...", 10
     transmission_prompt_len     equ $ - transmission_prompt
 
-    reception_prompt            db 10, "Listening...        (Ctrl + C to stop)", 10
+    reception_prompt            db 10, 10, "Listening...        (Ctrl + C to stop)", 10
     reception_prompt_len        equ $ - reception_prompt
 
     reception_first_packet      db 10, "Received first packet! Waiting for 49 others...", 10
@@ -74,6 +74,9 @@ section .rodata:
     padding                     db "P"
 
     newline                     db 10
+
+    clear_terminal              db 27, '[', 'H', 27, '[', '2', 'J', 27, '[', '3', 'J'
+    clear_terminal_len          equ $ - clear_terminal
 
     CRC_len                     equ 8
     IV_len                      equ 16

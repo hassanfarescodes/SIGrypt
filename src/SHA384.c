@@ -53,6 +53,7 @@ static void write_all(int fd, const void *buf, size_t len){
     }
 }
 
+
 int zero_fill(uint8_t *p, size_t n) {
 
     if (n == 0) return 0;
@@ -66,6 +67,7 @@ int zero_fill(uint8_t *p, size_t n) {
 
     return 0;
 }
+
 
 static void write_str(int fd, const char *s){
     
@@ -84,11 +86,13 @@ static inline uint64_t rotate_r(uint64_t x, uint64_t n){
 
 }
 
+
 static inline uint64_t choose(uint64_t x, uint64_t y, uint64_t z){
     
     return (x & y) ^ (~x & z);
 
 }
+
 
 static inline uint64_t majority(uint64_t x, uint64_t y, uint64_t z){
 
@@ -96,11 +100,13 @@ static inline uint64_t majority(uint64_t x, uint64_t y, uint64_t z){
 
 }
 
+
 static inline uint64_t upper_sigma_A(uint64_t x){
 
     return rotate_r(x, 28) ^ rotate_r(x, 34) ^ rotate_r(x, 39);
 
 }
+
 
 static inline uint64_t upper_sigma_B(uint64_t x){
 
@@ -108,11 +114,13 @@ static inline uint64_t upper_sigma_B(uint64_t x){
 
 }
 
+
 static inline uint64_t lower_sigma_A(uint64_t x){
 
     return rotate_r(x,1) ^ rotate_r(x, 8) ^ (x >> 7);
 
 }
+
 
 static inline uint64_t lower_sigma_B(uint64_t x){
 
@@ -153,7 +161,7 @@ static const uint64_t round_const[80] = {
 
 //  Validated (https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.180-4.pdf)
 //
-//  Computation:    Pages 22-23
+//  Computation:    Pages 24-26
 
 static void compress(uint64_t hash_state[8], const uint8_t chunk[128]){
 
@@ -248,7 +256,7 @@ static void compress(uint64_t hash_state[8], const uint8_t chunk[128]){
 //  Validated (https://nvlpubs.nist.gov/nistpubs/fips/nist.fips.180-4.pdf)
 //
 //  Hash states:    Page 15
-//  Padding:        Page 8
+//  Padding:        Page 13
 
 int sha384(const uint8_t *message, size_t len, uint8_t out[48]){
     
@@ -341,6 +349,7 @@ int sha384(const uint8_t *message, size_t len, uint8_t out[48]){
     return 0;
 
 }
+
 
 int concatenate(const uint8_t *src, size_t src_len, const uint8_t *dst, size_t dst_len, uint8_t *out, size_t out_limit){
 

@@ -26,7 +26,6 @@ DEFAULT REL
 ; Total max size: 2209 bytes 
 ; ================================================================================
 
-
 extern frequency_buffer
 extern frequency_buffer_len
 
@@ -55,16 +54,24 @@ section .rodata
 
     reception_buffer_len        equ 2250
 
+section .data
+
+    rec_progress_bar:           db 13, '['
+                                times 50 db ' '
+                                db ']'
+
+    rec_progress_bar_len        equ $ - rec_progress_bar
 
 section .bss
+
     reception_buffer            resb reception_buffer_len       ; 45 bytes * 50 frequencies
     reception_response          resb reception_response_len     ; +RCV=<Address>,<Length>,<Data>,<RSSI>,<SNR>\r\n
     sa_int                      resb 32
     rec_CRC_tag_hex             resb CRC_len * 2
     rec_CRC_tag                 resb CRC_len
-    old_message_tracker         resq 1
     old_message_ID_1            resb IV_len
     old_message_ID_2            resb IV_len
+    old_message_tracker         resq 1
     cipher_IV_length            resq 1
     data_length                 resq 1
     format_time_hours           resq 1
@@ -73,7 +80,7 @@ section .bss
     format_time_hours_len       resq 1
     format_time_minutes_len     resq 1
     format_time_seconds_len     resq 1
-    first_packet_flag           resb 1
+    packets_received            resq 1
     PM_flag                     resb 1
     quit_flag                   resb 1
 
@@ -92,7 +99,6 @@ section .text
     extern hex_to_bytes
     extern DECRYPT_AES
     global SIGrypt_receive
-
 
 sigreturn_stub:
     mov rax, SYS_rt_sigreturn
@@ -122,6 +128,16 @@ install_signals:
 
     ret
 
+reset_progress_bar:
+    
+    lea rdi, [rec_progress_bar + 2]
+    mov rcx, 50
+    mov al, byte ' '
+    rep stosb
+
+    mov qword [packets_received], 0
+
+    ret
 
 is_SIGrypt_format:
 
@@ -194,7 +210,6 @@ is_SIGrypt_format:
 
         ret
     
-
 strip_padding:
 
     ; Purpose:
@@ -244,7 +259,6 @@ strip_padding:
         pop r12
         ret
 
-
 listen_LoRa:
 
     ; Purpose:
@@ -265,18 +279,22 @@ listen_LoRa:
     push r13
     ; r14 not touched, it contains module_FD
     push r15
-    
+
     mov r12, rdi
     mov r13, rsi
     lea r15, [reception_buffer]
     xor rbp, rbp
+    mov qword [packets_received], 0
 
     lea rdi, [reception_prompt]
     mov rsi, reception_prompt_len
     
     call SIGout
 
-    mov byte [first_packet_flag], 0
+    lea rdi, [newline]
+    mov rsi, 1
+        
+    call SIGout
 
     reset_offset:
     
@@ -309,28 +327,28 @@ listen_LoRa:
 
         cmp dword [reception_response], 0X5643522B                  ; == "+RCV" ?
         jne reset_offset
+        
+        lea rax, [rec_progress_bar + 2]
+        mov rdx, [packets_received]
+
+        mov byte [rax+rdx], '#'
+
+        lea rdi, [rec_progress_bar]
+        mov rsi, rec_progress_bar_len
+      
+        call SIGout
+        
+        inc qword [packets_received]
+
 
         ; lea rdi, [reception_response]                             ; Uncomment to see serial receptions
         ; mov rsi, rbx
 
         ; call SIGout
 
-        mov al, byte [first_packet_flag]
-        cmp al, 1
-        je post_first_packet
-
-        lea rdi, [reception_first_packet]
-        mov rsi, reception_first_packet_len
-
-        call SIGout
-
-        mov byte [first_packet_flag], 1
-        
-        post_first_packet:
-
-            lea rsi, [reception_response]
-            lea rdi, [reception_response+reception_response_len]
-            xor rcx, rcx
+        lea rsi, [reception_response]
+        lea rdi, [reception_response+reception_response_len]
+        xor rcx, rcx
 
         find_data:
 
@@ -357,7 +375,7 @@ listen_LoRa:
 
         add r15, 45
 
-        ; mov rdi, 10                                               ; Aids in serial debug visualization, prints \n
+        ; lea rdi, [newline]                                            ; Aids in serial debug visualization, prints \n
         ; mov rsi, 1
         
         ; call SIGout
@@ -470,6 +488,11 @@ SIGrypt_receive:
 
     test rax, rax
     js rec_config_failed
+
+    lea rdi, [clear_terminal]
+    mov rsi, clear_terminal_len
+
+    call SIGout
     
     call install_signals                        ; Not RF, this is a keyboardinterrupt handler
 
@@ -504,6 +527,13 @@ SIGrypt_receive:
 
         test rax, rax
         jnz reception_failed
+
+        lea rdi, [newline]
+        mov rsi, 1
+        
+        call SIGout
+
+        call reset_progress_bar
         
         lea rdi, [reception_buffer]
         mov rsi, reception_buffer_len

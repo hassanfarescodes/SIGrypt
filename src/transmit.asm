@@ -26,7 +26,6 @@ DEFAULT REL
 ; Total max size: 2209 bytes 
 ; ================================================================================
 
-
 global frequency_buffer
 global frequency_buffer_len
 global response_buffer
@@ -39,6 +38,15 @@ section .bss
     frequency_buffer            resb 32
     response_buffer             resb 32
     frequency_buffer_len        resq 1
+    packets_transmitted         resq 1
+
+section .data
+
+    trans_progress_bar:         db 13, '['
+                                times 50 db ' '
+                                db ']'
+
+    trans_progress_bar_len      equ $ - trans_progress_bar
 
 section .text
     extern int_to_ascii
@@ -48,7 +56,6 @@ section .text
     global termios_config
     global append_CRLF
     global SIGrypt_transmit
-
 
 termios_config:
 
@@ -427,8 +434,6 @@ SIGrypt_transmit:
     test rax, rax
     jnz trans_write_failed
 
-
-
 start_transmissions:
 
     lea rsi, [cmd_Send]
@@ -480,7 +485,13 @@ start_transmissions:
     mov rsi, transmission_prompt_len
     call SIGout
 
+    lea rdi, [newline]
+    mov rsi, 1
+        
+    call SIGout
     
+    mov qword [packets_transmitted], 0
+
     transmission_loop:
         
         ; Segment data into 50 pieces (1 piece per frequency)
@@ -508,6 +519,18 @@ start_transmissions:
 
         test rax, rax
         jnz trans_write_failed
+
+        lea rax, [trans_progress_bar + 2]
+        mov rdx, [packets_transmitted]
+
+        mov byte [rax+rdx], '#'
+
+        lea rdi, [trans_progress_bar]
+        mov rsi, trans_progress_bar_len
+      
+        call SIGout
+        
+        inc qword [packets_transmitted]
 
         ; Wait 20 ms
 
@@ -551,8 +574,12 @@ start_transmissions:
         jge transmission_succeeded
         jmp transmission_loop
 
-    
 transmission_succeeded:
+
+    lea rdi, [newline]
+    mov rsi, 1
+        
+    call SIGout
 
     lea rdi, [transmission_success_p]
     mov rsi, transmission_success_p_len
