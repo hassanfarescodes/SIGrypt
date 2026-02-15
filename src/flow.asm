@@ -67,9 +67,6 @@ section .rodata
     In_prompt       db 10, "Please enter 1024 bytes or less!", 10
     In_prompt_len   equ $ - In_prompt
 
-    Tip_prompt      db 10, "Tip: Tired of typing your inputs? Go to /misc for info to automate this process!", 10
-    Tip_prompt_len  equ $ - Tip_prompt
-
     Mes_prompt      db 10, "Enter message : "
     Mes_pro_len     equ $ - Mes_prompt
 
@@ -97,6 +94,8 @@ section .rodata
 
     error_wipes     db 10, "[!] CRITICAL FAILED TO WIPE SIGRYPT BUFFERS!", 10
     error_wipes_len equ $ - error_wipes
+
+    max_key_length  equ 256
 
 section .data
 
@@ -140,11 +139,12 @@ ascii_art:
 ascii_art_len: equ $ - ascii_art
 
 section .bss
+
     ciphertext_hex      resb    3072 
-    initial_key         resb    256     ; max(len(word)) * 24 = 9 * 24
-    master_key          resb    256
-    master_AES_key      resb    256     ; SHA256(master_key || " enc")
-    master_HMAC_key     resb    256     ; SHA256(master_key || " mac")
+    initial_key         resb    max_key_length      ; max(len(word)) * 24 = 9 * 24
+    master_key          resb    max_key_length
+    master_AES_key      resb    max_key_length      ; SHA256(master_key || " enc")
+    master_HMAC_key     resb    max_key_length      ; SHA256(master_key || " mac")
     fstat_buf           resb    144
     IV_cache            resb    64
     prompt              resb    16
@@ -489,6 +489,7 @@ SIGrypt_wipe_buffers:
 
 
 SIGout:
+
     ; Purpose:
     ;       Prints using write syscall
     ;
@@ -499,6 +500,7 @@ SIGout:
     ; Returns:
     ;       rax -> 0 on success
     ;       rax -> 1 on failure
+
     push rbx
 
     mov r8, rdi
@@ -520,6 +522,7 @@ SIGout:
 
 
 SIGin:
+
     ; Purpose:
     ;       Inputs using read syscall
     ;
@@ -543,6 +546,7 @@ SIGin:
 
 
 string_strip:
+
     ; Purpose:
     ;       Strips string of leading and
     ;       trailing whitespace(s) + newline(s)
@@ -617,6 +621,7 @@ string_strip:
 
 
 count_spaces:
+
     ; Purpose:
     ;       Returns number of spaces of a buffer
     ;
@@ -1218,7 +1223,7 @@ START_SIGrypt:
     ;       rax -> 24 on openat
     ;       rax -> 25 on fstat
     ;       rax -> 26 on mmap
-    ;       rax -> 27 on ptrace
+    ;       rax -> 27 on key input overflowed
     ;       rax -> 28 on RDRAND
     ;       rax -> 29 on setrlimit
     ;       rax -> 30 on prctl
@@ -1241,23 +1246,11 @@ START_SIGrypt:
 
     sub rsp, 8
 
-    ; Check if binary is getting ptraced
-
     mov qword [module_FD], -1                                       ; Invalidate the module_FD for handling close logic at termination
     mov qword [keyfile_FD], -1                                      ; Invalidate the keyfile_FD for handling close logic at termination
     mov qword [masters_lock_flag], -1                               ; Invalidate the masters_lock_flag for handling wipe and munlock logic at termination
     mov qword [initial_key_flag], -1                                ; Invalidate the initial_key_flag for handling wipe and munlock logic at termination
-    mov qword [response_code], 0
-
-    mov rax, SYS_ptrace
-    mov rdi, 0
-    xor rsi, rsi
-    xor rdx, rdx
-    xor r10, r10
-    ;syscall
-  
-    test rax, rax
-    ;js flow_ptrace_failed                                     <-------- TODO: Remove after debugging
+    mov qword [response_code], 0                                    ; Used for handling response code returns
 
     ; Check if RDRAND is supported
 
@@ -1359,8 +1352,17 @@ START_SIGrypt:
     js flow_SIGin_failed
 
     lea rdi, [Freq_num]
-    mov rsi, 4
+    mov rsi, rax
+    lea rdx, [Freq_num]
+
+    call string_strip
+
+    test rax, rax
+    js flow_ascii2int_failed
     
+    lea rdi, [Freq_num]
+    mov rsi, rax
+
     call ascii_to_int
 
     test rax, rax
@@ -1452,7 +1454,7 @@ START_SIGrypt:
     mov qword [plaintext_len], rax
 
     ; remove '\n' if it exists
-    cmp byte [plaintext+rax-1], 10
+  cmp byte [plaintext+rax-1], 10
     sete al
     movzx eax, al
     sub qword [plaintext_len], rax
@@ -1464,6 +1466,12 @@ flow_post_inputs:
     lea rdx, [master_AES_key]
 
     call string_strip
+
+    test rax, rax
+    js flow_key_input_failed
+  
+    cmp rax, max_key_length - label_len
+    ja flow_key_input_overflowed 
 
     lea rsi, [AES_label]
     lea rdi, [master_AES_key]
@@ -1486,6 +1494,12 @@ flow_post_inputs:
     lea rdx, [master_HMAC_key]
 
     call string_strip
+
+    test rax, rax
+    js flow_key_input_failed
+
+    cmp rax, max_key_length - label_len
+    ja flow_key_input_overflowed 
 
     lea rsi, [HMAC_label]
     lea rdi, [master_HMAC_key]
@@ -1709,6 +1723,7 @@ flow_destroy_A:
 
 
 destroy_buffers:
+
     call SIGrypt_wipe_buffers
 
     test rax, rax
@@ -1858,7 +1873,7 @@ flow_mmap_failed:
     jmp flow_terminate
 
 
-flow_ptrace_failed:
+flow_key_input_overflowed:
 
     mov qword [response_code], 27
     jmp flow_terminate

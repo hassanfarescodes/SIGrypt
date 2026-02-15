@@ -14,6 +14,7 @@ DEFAULT REL
 %include "../include/data_block.inc"
 
 section .text
+
     global SIGrypt_CRC_ECMA182
     global SIGrypt_CRC_Validate
 

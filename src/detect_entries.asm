@@ -41,8 +41,10 @@ section .rodata
     no_detected_len equ $ - no_detected
 
 section .text
+
     extern SIGout
     global detect_entries
+
 
 detect_entries:
 
@@ -67,6 +69,7 @@ detect_entries:
     mov r12, rax
     xor r15, r15
 
+
 read_entries:
     
     mov rax, SYS_getdents64
@@ -81,6 +84,7 @@ read_entries:
     mov [remaining], rax
     lea r13, [entry_buf]
     
+
 next:
     
     cmp qword [remaining], 0
@@ -94,6 +98,7 @@ next:
     xor r8, r8
     lea rcx, [mod_num]
 
+
 detect_module:
        
     mov al, byte [rdi+rdx]
@@ -106,7 +111,9 @@ detect_module:
     inc rdx
     jmp detect_module
 
+
 find_length:
+
     inc rdx
 
     mov al, byte [rsi+rdx]
@@ -116,6 +123,7 @@ find_length:
 
     cmp byte [rsi+rdx], 0
     jne find_length
+
 
 print_entry:
 
@@ -148,10 +156,13 @@ print_entry:
     
     call SIGout
 
+
 skip_entry:
+
     add r13, r14
     sub qword [remaining], r14
     jmp next
+
 
 no_more_entries:
     
@@ -174,6 +185,7 @@ no_more_entries:
     
 
 terminate:
+
     lea rdi, [reset]
     mov rsi, reset_len
 

@@ -28,7 +28,7 @@
         24                  openat                      *
         25                  fstat                       *
         26                  mmap                        *
-        27                  ptrace                      *
+        27                  key input overflow          *
         28                  RDRAND                      *
         29                  setrlimit                   *
         30                  prctl                       *
