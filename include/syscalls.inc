@@ -1,6 +1,7 @@
 %ifndef __SYSCALLS_INC_
 %define __SYSCALLS_INC__
 
+
 %define SYS_read 0
 %define SYS_write 1
 %define SYS_open 2
