@@ -12,12 +12,12 @@
 BITS 64
 DEFAULT REL
 
-%include "../include/syscalls.inc"          ; Defined syscall names to number mapping
+%include "../include/syscalls.inc"              ; Defined syscall names to number mapping
 
-%include "../include/behaviour_config.inc"   ; Specifies variables globally used 
+%include "../include/behaviour_config.inc"      ; Specifies variables globally used 
 
-%include "../include/data_block.inc"        ; See "Data Block Memory Layout" below for
-                                            ; more details!
+%include "../include/data_block.inc"            ; See "Data Block Memory Layout" below for
+                                                ; more details!
 
 ; =================================================================
 ;           !   NOTE: FREQUENCIES ARE BASED IN THE US   !
@@ -143,8 +143,8 @@ section .bss
     ciphertext_hex      resb    3072 
     initial_key         resb    max_key_length      ; max(len(word)) * 24 = 9 * 24
     master_key          resb    max_key_length
-    master_AES_key      resb    max_key_length      ; SHA256(master_key || " enc")
-    master_HMAC_key     resb    max_key_length      ; SHA256(master_key || " mac")
+    master_AES_key      resb    max_key_length      ; SHA384(master_key || " enc")
+    master_HMAC_key     resb    max_key_length      ; SHA384(master_key || " mac")
     fstat_buf           resb    144
     IV_cache            resb    64
     prompt              resb    16
